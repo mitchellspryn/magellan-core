@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>cone_detector</name>
+  <version>0.0.0</version>
+  <description>This package outputs a message that detects a traffic cone in the image. It uses a FCN do a pixel-wise prediction. 
+    It outputs the found coordinates of the image on the topic, and a flag to determine if the cone was detected.
+    If debug mode is enabled, additional topics will be created that publish the input image and the mask of the detected points.</description>
+
+  <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
+
+  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
+
+  <license>GPLv3</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>magellan_messages</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_export_depend>cv_bridge</build_export_depend>
+  <build_export_depend>image_transport</build_export_depend>
+  <build_export_depend>rospy</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>magellan_messages</build_export_depend>
+  <build_export_depend>message_generation</build_export_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>magellan_messages</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+</package>
