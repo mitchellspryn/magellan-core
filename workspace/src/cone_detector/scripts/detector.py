@@ -46,10 +46,10 @@ class ConeDetector(object):
 
         draw_debug_img = image.copy()
 
-        if (outline is not None):
+        if (outline is not None and len(outline) > 0):
             draw_debug_img = cv2.polylines(draw_debug_img, outline, True, (255, 0, 255), 4, cv2.LINE_AA)
 
-        if (centroid is not None):
+        if (centroid is not None and centroid[1] is not None and centroid[0] is not None):
             draw_debug_img = cv2.circle(draw_debug_img, (centroid[1], centroid[0]), 5, (0, 255, 255), -1, cv2.LINE_AA)
 
         return centroid, image, detector_utils.make_mask_image(output_image), detector_utils.make_mask_image(processed_output_image), draw_debug_img

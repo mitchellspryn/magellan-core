@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     FILES
     cone_detector/MsgConeDetectorOutput.msg
-    cone_detector/MsgConeDetectorDebug.msg
 )
 
 generate_messages(

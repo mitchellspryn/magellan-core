@@ -16,8 +16,8 @@ from geometry_msgs.msg import Point32
 
 from keras.models import Sequential, Model, load_model
 
-from magellan_msgs.msg.cone_detector import MsgConeDetectorDebug
-from magellan_msgs.msg.cone_detector import MsgConeDetectorOutput
+from magellan_messages.msg import MsgConeDetectorOutput
+from sensor_msgs.msg import Image
 
 import detector
 import detector_utils
@@ -29,13 +29,13 @@ g_cone_detector = None
 g_lock = threading.Lock()
 g_input_topic = None
 g_output_topic = None
-g_debug_topic = None
+g_debug_topics = None
 
 def predict_callback(data):
     global g_cone_detector
     global g_input_topic
     global g_output_topic
-    global g_debug_topic
+    global g_debug_topics
     global g_lock
     global g_cv_bridge
 
@@ -44,7 +44,18 @@ def predict_callback(data):
             rospy.logfatal('Cone detector is None.')
             return
         
-        centroid, input_image, raw_output, processed_output, debug_draw = g_cone_detector.predict_image(g_cv_bridge.imgmsg_to_cv2(data.image, 'bgr8'))
+        centroid, input_image, raw_output, processed_output, debug_draw = g_cone_detector.predict_image(g_cv_bridge.imgmsg_to_cv2(data, 'bgr8'))
+
+        point = Point32()
+        
+        if (centroid is None or centroid[0] is None or centroid[1] is None):
+            point.x = -1
+            point.y = -1
+        else:
+            point.x = centroid[1]
+            point.y = centroid[0]
+
+        point.z = 0
 
         if (g_output_topic is not None):
             msg = MsgConeDetectorOutput()
@@ -54,21 +65,17 @@ def predict_callback(data):
             g_output_topic.publish(msg)
 
         if (g_cone_detector.is_debug()):
-            msg = MsgConeDetectorDebug()
-            msg.header.stamp = data.header.stamp
-            msg.input_frame = input_image
-            msg.raw_prediction = raw_output
-            msg.processed_prediction = processed_output
-            msg.debug_image = debug_draw
-
-            g_debug_topic.publish(msg)
+            g_debug_topics[0].publish(g_cv_bridge.cv2_to_imgmsg(input_image, 'bgr8'))
+            g_debug_topics[1].publish(g_cv_bridge.cv2_to_imgmsg(raw_output, 'bgr8'))
+            g_debug_topics[2].publish(g_cv_bridge.cv2_to_imgmsg(processed_output, 'bgr8'))
+            g_debug_topics[3].publish(g_cv_bridge.cv2_to_imgmsg(debug_draw, 'bgr8'))
 
 
 def init_detector_and_topics(parsed_args):
     global g_cone_detector
     global g_input_topic
     global g_output_topic
-    global g_debug_topic
+    global g_debug_topics
 
     if 'model_path' not in parsed_args:
         rospy.logerror('Model not specified. Please specify the proper model with -m')
@@ -82,11 +89,17 @@ def init_detector_and_topics(parsed_args):
 
     g_cone_detector = detector.ConeDetector(parsed_args['model_path'], parsed_args['opening_iterations'], parsed_args['debug'])
 
-    g_input_topic = rospy.Subscriber('input_topic', msg_type, predict_callback, queue_size=1)
-    g_output_topic = rospy.Publisher('output_topic', msg_type, queue_size=1000)
+    g_input_topic = rospy.Subscriber('input_topic', Image, predict_callback, queue_size=1)
+    g_output_topic = rospy.Publisher('output_topic', MsgConeDetectorOutput, queue_size=1000)
     
     if parsed_args['debug']:
-        g_debug_topic = rospy.Publisher('debug_output_topic', msg_type, queue_size=1000)
+        g_debug_topics = []
+        g_debug_topics.append(rospy.Publisher('debug_original_image_topic', Image, queue_size=1000))
+        g_debug_topics.append(rospy.Publisher('debug_predicted_image_topic', Image, queue_size=1000))
+        g_debug_topics.append(rospy.Publisher('debug_processed_image_topic', Image, queue_size=1000))
+        g_debug_topics.append(rospy.Publisher('debug_draw_image_topic', Image, queue_size=1000))
+
+    return True
 
 
 def run_node():

@@ -1,0 +1,22 @@
+<launch>
+    <arg name="model_file_path" default="/home/mitchell/magellan-core/magellan-core/workspace/data/cone_detector/cone_detector_model.h5" />
+    <arg name="debug" default="True" />
+
+
+    <node name="webcam_node" pkg="webcam_sensor_reader" type="node" args="-i 1 -f 30 -q 1">
+        <remap from="output_topic" to="/webcam_node/output_topic" />
+    </node>
+
+    <node name="detector_node" pkg="cone_detector" type="ros_node.py" args="-m $(arg model_file_path) -d True -o 1" >
+        <remap from="input_topic" to="/webcam_node/output_topic" />
+        <remap from="output_topic" to="/cone_detector_node/output_topic" />
+        <remap from="debug_original_image_topic" to="/cone_detector_node/debug_original_image_topic" />
+        <remap from="debug_predicted_image_topic" to="/cone_detector_node/debug_predicted_image_topic" />
+        <remap from="debug_processed_image_topic" to="/cone_detector_node/debug_processed_image_topic" />
+        <remap from="debug_draw_image_topic" to="/cone_detector_node/debug_draw_image_topic" />
+    </node>
+
+    <node name="webcam_recorder" pkg="rosbag" type="record" args="/webcam_node/output_topic -o WebcamImageFeed" />
+    <node name="detector_recorder" pkg="rosbag" type="record" args="/cone_detector_node/output_topic -o DetectorOutput" />
+    <node name="detector_debug_recorder" pkg="rosbag" type="record" args="/cone_detector_node/debug_original_image_topic /cone_detector_node/debug_predicted_image_topic /cone_detector_node/debug_processed_image_topic /cone_detector_node/debug_draw_image_topic -o DetectorDebugOutput" />
+</launch>

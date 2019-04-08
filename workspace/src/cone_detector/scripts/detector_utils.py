@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import sys
 import keras.backend as K
 
 def parse_bool(val):
@@ -22,21 +23,20 @@ def parse_int(val):
         rospy.logfatal(error_msg)
         raise ValueError(error_msg)
 
-def parse_command_line_args():
-    global g_cmd_line_args
-    args = sys.argv
-
-    g_cmd_line_args = {}
-    g_cmd_line_args['debug_topic'] = False
-    g_cmd_line_args['verbose_print'] = False
+def parse_command_line_args(args):
+    cmd_line_args = {}
+    cmd_line_args['debug'] = False
+    cmd_line_args['verbose_print'] = False
 
     for i in range(1, len(args), 2):
         if args[i] == '-m':
-            g_cmd_line_args['model_path'] = args[i+1]
+            cmd_line_args['model_path'] = args[i+1]
         elif args[i] == '-d':
-            g_cmd_line_args['debug'] = parse_bool(args[i+1])
+            cmd_line_args['debug'] = parse_bool(args[i+1])
         elif args[i] == '-o':
-            g_cmd_line_args['opening_iterations'] = parse_int(args[i+1])
+            cmd_line_args['openiniterations'] = parse_int(args[i+1])
+
+    return cmd_line_args
 
 def smoothed_jaccard(y_true, y_pred, smooth=100):
     intersection = K.sum(K.sum(K.sum(K.abs(y_true * y_pred), axis=1), axis=1), axis=1)
