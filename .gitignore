@@ -158,3 +158,6 @@ dmypy.json
 # ROS specific
 workspace/build
 workspace/devel
+
+# VIM swap files
+*.swp

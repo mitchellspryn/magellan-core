@@ -22,7 +22,9 @@ catkin_package(
 )
 
 install(PROGRAMS 
-  scripts/cone_detector.py
+  scripts/ros_node.py
+  scripts/detector_utils.py
+  scripts/detector.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
