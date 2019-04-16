@@ -31,7 +31,6 @@ class ConeDetector(object):
             self.prediction_buffer[0, :, :, :] = image
 
         with self.graph.as_default():
-
             output_image = self.model.predict(self.prediction_buffer)[0]
 
         output_image = (output_image > 0.5).astype(np.uint8)

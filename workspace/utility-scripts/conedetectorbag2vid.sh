@@ -17,7 +17,7 @@ OUTPUT_FILE_NAME="output.mp4"
 while getopts "no:" o; do
     case "${o}" in
         n)
-            SHOULD_SAVE_VIDEOS=true
+            SHOULD_SAVE_VIDEOS="true"
             ;;
         o)
             OUTPUT_FILE_NAME=${OPTARG}

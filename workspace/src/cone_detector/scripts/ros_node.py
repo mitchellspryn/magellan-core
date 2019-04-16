@@ -44,7 +44,8 @@ def predict_callback(data):
             rospy.logfatal('Cone detector is None.')
             return
         
-        centroid, input_image, raw_output, processed_output, debug_draw = g_cone_detector.predict_image(g_cv_bridge.imgmsg_to_cv2(data, 'bgr8'))
+        img = g_cv_bridge.imgmsg_to_cv2(data, 'bgr8')[...,::-1]
+        centroid, input_image, raw_output, processed_output, debug_draw = g_cone_detector.predict_image(cv2.resize(img, g_cone_detector.get_shape(), cv2.INTER_LANCZOS4))
 
         point = Point32()
         
@@ -65,10 +66,10 @@ def predict_callback(data):
             g_output_topic.publish(msg)
 
         if (g_cone_detector.is_debug()):
-            g_debug_topics[0].publish(g_cv_bridge.cv2_to_imgmsg(input_image, 'bgr8'))
-            g_debug_topics[1].publish(g_cv_bridge.cv2_to_imgmsg(raw_output, 'bgr8'))
-            g_debug_topics[2].publish(g_cv_bridge.cv2_to_imgmsg(processed_output, 'bgr8'))
-            g_debug_topics[3].publish(g_cv_bridge.cv2_to_imgmsg(debug_draw, 'bgr8'))
+            g_debug_topics[0].publish(g_cv_bridge.cv2_to_imgmsg(input_image[...,::-1], 'bgr8'))
+            g_debug_topics[1].publish(g_cv_bridge.cv2_to_imgmsg(raw_output[...,::-1], 'bgr8'))
+            g_debug_topics[2].publish(g_cv_bridge.cv2_to_imgmsg(processed_output[...,::-1], 'bgr8'))
+            g_debug_topics[3].publish(g_cv_bridge.cv2_to_imgmsg(debug_draw[...,::-1], 'bgr8'))
 
 
 def init_detector_and_topics(parsed_args):
