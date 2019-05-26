@@ -58,3 +58,8 @@ void get_76800_baud_settings(uint16_t *ubrrh, uint16_t *ubrrl, unsigned char* us
 		*use2x = 0x00;
 	#endif
 }
+
+void delay_one_second()
+{
+	_delay_ms(1000);
+}

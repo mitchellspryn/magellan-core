@@ -137,6 +137,12 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="Mpu9250Imu.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Mpu9250Imu.h">
+      <SubType>compile</SubType>
+    </Compile>
   </ItemGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
 </Project>

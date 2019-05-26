@@ -13,6 +13,7 @@
 
 #include "Common.h"
 #include "AdafruitUltimateGps.h"
+#include "Mpu9250Imu.h"
 
 #define CLIENT_TX_BUF_LEN 1022
 
@@ -29,24 +30,37 @@ static ClientTxBuf_t ClientTxBuf;
 
 int main(void)
 {
+	delay_one_second();
     init_client_serial_port();
-	send_client_message("Starting...\r\n");
+	send_client_message("Starting...\n");
 
-	init_gps();
-	send_client_message("Initialized GPS.\r\n");
+	init_imu();
+	send_client_message("Initialized IMU.\n");
+
+	delay_one_second();
+
+	ClientTxBuf.Index = 0;
+	ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
+	ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
+	ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
+	send_client_message(ClientTxBuf.Buffer);
+
+	//init_gps();
+	//send_client_message("Initialized GPS.\n");
 
 	sei();
 	for (;;)
 	{
-		ClientTxBuf.Index = 0;
-		ClientTxBuf.Index += append_gps_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
-		
-		if (ClientTxBuf.Index > 0)
-		{
-			ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
-			ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
-			send_client_message(ClientTxBuf.Buffer);
-		}
+		//ClientTxBuf.Index = 0;
+		//ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
+		//ClientTxBuf.Index += append_gps_reading(ClientTxBuf.Buffer + ClientTxBuf.Index, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
+		//
+		//if (ClientTxBuf.Index > 0)
+		//{
+			//ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
+			//ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
+			//send_client_message(ClientTxBuf.Buffer);
+		//}
 	}
 }
 
