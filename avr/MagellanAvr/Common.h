@@ -21,5 +21,6 @@ void get_38400_baud_settings(uint16_t *ubrrh, uint16_t *ubrrl, unsigned char* us
 void get_76800_baud_settings(uint16_t *ubrrh, uint16_t *ubrrl, unsigned char* use2x);
 
 void delay_one_second();
+void delay_one_us();
 
 #endif /* COMMON_H_ */

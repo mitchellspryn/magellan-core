@@ -30,20 +30,18 @@ static ClientTxBuf_t ClientTxBuf;
 
 int main(void)
 {
-	delay_one_second();
     init_client_serial_port();
 	send_client_message("Starting...\n");
 
-	init_imu();
+	if (!init_imu())
+	{
+		for (;;)
+		{
+			send_client_message("Could not initialize IMU.\n");
+			delay_one_second();
+		}
+	}
 	send_client_message("Initialized IMU.\n");
-
-	delay_one_second();
-
-	ClientTxBuf.Index = 0;
-	ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
-	ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
-	ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
-	send_client_message(ClientTxBuf.Buffer);
 
 	//init_gps();
 	//send_client_message("Initialized GPS.\n");
@@ -51,16 +49,18 @@ int main(void)
 	sei();
 	for (;;)
 	{
-		//ClientTxBuf.Index = 0;
-		//ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
+		ClientTxBuf.Index = 0;
+		ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
 		//ClientTxBuf.Index += append_gps_reading(ClientTxBuf.Buffer + ClientTxBuf.Index, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
-		//
-		//if (ClientTxBuf.Index > 0)
-		//{
-			//ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
-			//ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
-			//send_client_message(ClientTxBuf.Buffer);
-		//}
+		
+		if (ClientTxBuf.Index > 0)
+		{
+			ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
+			ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
+			send_client_message(ClientTxBuf.Buffer);
+		}
+
+		delay_one_second();
 	}
 }
 

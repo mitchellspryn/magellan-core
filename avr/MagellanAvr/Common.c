@@ -63,3 +63,8 @@ void delay_one_second()
 {
 	_delay_ms(1000);
 }
+
+void delay_one_us()
+{
+	_delay_us(1000);
+}
