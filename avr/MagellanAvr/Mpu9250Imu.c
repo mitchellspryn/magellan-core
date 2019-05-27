@@ -7,10 +7,10 @@
 
 #include "Mpu9250Imu.h"
 
-static inline void write_spi_byte(unsigned char startAddress, unsigned char data);
-static inline unsigned char read_spi_byte(unsigned char startAddress);
 static void write_spi_bytes(unsigned char startAddress, unsigned char* data, size_t num_bytes);
 static void read_spi_bytes(unsigned char startAddress, unsigned char* data, size_t num_bytes);
+static inline void write_spi_byte(unsigned char startAddress, unsigned char data);
+static inline unsigned char read_spi_byte(unsigned char startAddress);
 static inline unsigned char spi_char_transaction(unsigned char data);
 
 int init_imu()
@@ -71,21 +71,7 @@ int init_imu()
 	// Set the bandwidth to 44.8 Hz. This introduces a delay of 5 ms
 	write_spi_byte(ACCEL_CONFIG_2_MPU9250, 0x0B);
 
-	// Read WHO_AM_I register from magnetometer
-	// First, configure I2C slave 4 for read
-	//write_spi_byte(I2C_MSTR_CTRL_MPU9250, (1<<7));
-	//write_spi_byte(I2C_SLV4_ADDR_MPU9250, ADDRESS_AK8963 | READ_FLAG);
-	//write_spi_byte(I2C_SLV4_REG_MPU9250, WHO_AM_I_AK8963 | READ_FLAG);
-	//write_spi_byte(I2C_SLV4_DO_MPU9250, WHO_AM_I_AK8963 | READ_FLAG);
-	//write_spi_byte(I2C_SLV4_CTRL_MPU9250, (1 << 7));
-	//char isDone = 0x00;
-	//do 
-	//{
-		//isDone = read_spi_byte(I2C_MASTER_STATUS_MPU9250);
-	//} while (!(isDone & (1 << 6)));
-//
-	//whoAmI = read_spi_byte(I2C_SLV4_DI_MPU9250);
-
+	// Check that magnetometer is online.
 	write_spi_byte(I2C_MSTR_CTRL_MPU9250, 0x8D);
 	write_spi_byte(INT_PIN_CFG_MPU9250, 0x22);
 	write_spi_byte(I2C_SLV4_ADDR_MPU9250, ADDRESS_AK8963 | READ_FLAG);
@@ -93,7 +79,11 @@ int init_imu()
 	write_spi_byte(I2C_SLV4_REG_MPU9250, 0x00);
 	write_spi_byte(I2C_SLV4_CTRL_MPU9250, (1 << 7) | (1 << 0));
 
-	delay_one_us();
+	whoAmI = 0x00;
+	do 
+	{
+		whoAmI = read_spi_byte(I2C_MASTER_STATUS_MPU9250);
+	} while (!(whoAmI & (1 << 6)));
 
 	whoAmI = read_spi_byte(I2C_SLV4_DI_MPU9250);
 
@@ -101,13 +91,43 @@ int init_imu()
 	{
 		UDR0 = 'X';
 		while(!(UCSR0A & (1 << UDRE0))) {};
-		UDR0 = 'X';
+		return 0x00;
+	}
+
+	// Configure the magnetometer
+	write_spi_byte(I2C_SLV4_ADDR_MPU9250, ADDRESS_AK8963);
+	write_spi_byte(I2C_SLV4_DO_MPU9250, 0x16);
+	write_spi_byte(I2C_SLV4_REG_MPU9250, CTRL1_AK8963);
+	write_spi_byte(I2C_SLV4_CTRL_MPU9250, (1 << 7) | (1 << 0));
+	whoAmI = 0x00;
+	do
+	{
+		whoAmI = read_spi_byte(I2C_MASTER_STATUS_MPU9250);
+	} while (!(whoAmI & (1 << 6)));
+
+	// For now, check that the config went through
+	write_spi_byte(I2C_SLV4_ADDR_MPU9250, ADDRESS_AK8963 | READ_FLAG);
+	write_spi_byte(I2C_SLV4_DO_MPU9250, 0x00);
+	write_spi_byte(I2C_SLV4_REG_MPU9250, CTRL1_AK8963);
+	write_spi_byte(I2C_SLV4_CTRL_MPU9250, (1 << 7) | (1 << 0));
+	whoAmI = 0x00;
+	do
+	{
+		whoAmI = read_spi_byte(I2C_MASTER_STATUS_MPU9250);
+	} while (!(whoAmI & (1 << 6)));
+
+	whoAmI = read_spi_byte(I2C_SLV4_DI_MPU9250);
+	if (whoAmI != 0x16)
+	{
+		UDR0 = 'Y';
+		while(!(UCSR0A & (1 << UDRE0))) {};
+		UDR0 = 'Y';
 		while(!(UCSR0A & (1 << UDRE0))) {};
 		UDR0 = whoAmI;
 		while(!(UCSR0A & (1 << UDRE0))) {};
-		UDR0 = 'X';
+		UDR0 = 'Y';
 		while(!(UCSR0A & (1 << UDRE0))) {};
-		UDR0 = 'X';
+		UDR0 = 'Y';
 		while(!(UCSR0A & (1 << UDRE0))) {};
 		return 0x00;
 	}
@@ -141,30 +161,52 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 	int16_t gyroY = (data[10] << 8) | data[11];
 	int16_t gyroZ = (data[12] << 8) | data[13];
 
+	// TODO: This is hacky. 
+	// There should be a way to read this into EXT_SENS_DATA via I2C_SLV0 registers
+	// However, the data doesn't seem to show up.
+	char c;
+	for (int i = 0; i < 7; i++)
+	{
+		write_spi_byte(I2C_SLV4_ADDR_MPU9250, ADDRESS_AK8963 | READ_FLAG);
+		write_spi_byte(I2C_SLV4_DO_MPU9250, 0x00);
+		write_spi_byte(I2C_SLV4_REG_MPU9250, DATA_START_AK8963 + i);
+		write_spi_byte(I2C_SLV4_CTRL_MPU9250, (1 << 7) | (1 << 0));
+
+		do 
+		{
+			c = read_spi_byte(I2C_MASTER_STATUS_MPU9250);
+		} while (!(c & (1 << 6)));
+
+		data[i] = read_spi_byte(I2C_SLV4_DI_MPU9250);
+	}
+
+	uint16_t magX = 0xFF;
+	uint16_t magY = 0xFF;
+	uint16_t magZ = 0xFF;
+	if (!(data[6] & 0x08))
+	{
+		magX = (data[0] << 8) | data[1];
+		magY = (data[2] << 8) | data[3];
+		magZ = (data[4] << 8) | data[5];
+	}
+
 	// TODO: This should be made much more elegant.
-	sprintf(buffer, "IMU: ax:%d, ay:%d, az:%d, tmp:%d, gx:%d, gy:%d, gz:%d|",
+	sprintf(buffer, "IMU: ax:%d, ay:%d, az:%d, tmp:%d, gx:%d, gy:%d, gz:%d, mx:%d, my:%d, mz:%d|",
 		accelX,
 		accelY,
 		accelZ,
 		temp,
 		gyroX,
 		gyroY,
-		gyroZ);
+		gyroZ, 
+		magX,
+		magY,
+		magZ);
 
 	return strlen(buffer);
 }
 
-static inline unsigned char read_spi_byte(unsigned char startAddress)
-{
-	unsigned char c;
-	read_spi_bytes(startAddress, &c, 1);
-	return c;
-}
 
-static inline void write_spi_byte(unsigned char startAddress, unsigned char data)
-{
-	write_spi_bytes(startAddress, &data, 1);
-}
 
 static void write_spi_bytes(unsigned char startAddress, unsigned char* data, size_t num_bytes)
 {
@@ -193,6 +235,19 @@ static void read_spi_bytes(unsigned char startAddress, unsigned char* data, size
 
 	PORTL |= (1 << 0);
 }
+
+static inline unsigned char read_spi_byte(unsigned char startAddress)
+{
+	unsigned char c;
+	read_spi_bytes(startAddress, &c, 1);
+	return c;
+}
+
+static inline void write_spi_byte(unsigned char startAddress, unsigned char data)
+{
+	write_spi_bytes(startAddress, &data, 1);
+}
+
 
 static inline unsigned char spi_char_transaction(unsigned char data)
 {

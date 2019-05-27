@@ -43,15 +43,15 @@ int main(void)
 	}
 	send_client_message("Initialized IMU.\n");
 
-	//init_gps();
-	//send_client_message("Initialized GPS.\n");
+	init_gps();
+	send_client_message("Initialized GPS.\n");
 
 	sei();
 	for (;;)
 	{
 		ClientTxBuf.Index = 0;
 		ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
-		//ClientTxBuf.Index += append_gps_reading(ClientTxBuf.Buffer + ClientTxBuf.Index, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
+		ClientTxBuf.Index += append_gps_reading(ClientTxBuf.Buffer + ClientTxBuf.Index, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
 		
 		if (ClientTxBuf.Index > 0)
 		{
@@ -59,8 +59,6 @@ int main(void)
 			ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
 			send_client_message(ClientTxBuf.Buffer);
 		}
-
-		delay_one_second();
 	}
 }
 
