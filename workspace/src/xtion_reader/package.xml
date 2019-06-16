@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>xtion_reader</name>
+  <version>1.0.0</version>
+  <description>This package reads data from the Asus Xtion PRO depth sensor and publishes it to two topics</description>
+  <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
+  <license>MIT</license>
+  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>message_generation</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>cv_bridge</build_export_depend>
+  <build_export_depend>image_transport</build_export_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+
+</package>
