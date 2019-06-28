@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>magellan_serial_port</name>
+  <version>0.0.0</version>
+  <description>Contains a class that is used to interact with a serial port from c++ code. This is used throughout the magellan robot for communication with various sensors.</description>
+
+  <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>magellan_messages</build_depend>
+  <build_depend>message_runtime</build_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>message_generation</build_export_depend>
+  <build_export_depend>magellan_messages</build_export_depend>
+  <build_export_depend>message_runtime</build_export_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>message_generation</exec_depend>
+  <exec_depend>magellan_messages</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+</package>

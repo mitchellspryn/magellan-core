@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     FILES
     cone_detector/MsgConeDetectorOutput.msg
+    magellan_serial_port/MsgSerialPortLine.msg
 )
 
 generate_messages(
@@ -23,7 +24,7 @@ generate_messages(
 )
 
 catkin_package(
-    CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs
+    CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs message_runtime
 )
 
 include_directories(
