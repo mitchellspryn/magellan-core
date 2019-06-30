@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
-#include <unistd.h>
+#include <limits>
 
 #define USB_PORT_MAX_LEN 128
 #define CLOSING_CMD_MAX_LEN 1024
@@ -108,15 +108,19 @@ int main(int argc, char** argv)
     char serial_port_name[USB_PORT_MAX_LEN];
     size_t baud;
     char separator;
-    size_t min_message_length;
+    bool separator_valid = false;
+    size_t min_message_length = 0;
+    size_t max_message_length = std::numeric_limits<size_t>::max();
+    char message_header;
+    bool message_header_valid = false;
     unsigned char closing_command[CLOSING_CMD_MAX_LEN];
     size_t closing_command_length = 0;
 
-
     int c;
-    while((c = getopt(argc, argv, "n:b:s:m:c:")) != -1)
+    while((c = getopt(argc, argv, "n:b:s:m:a:h:c:")) != -1)
     {
         size_t len = 0;
+        std::stringstream ss;
         switch (c)
         {
             case 'n':
@@ -156,6 +160,7 @@ int main(int argc, char** argv)
                 }
 
                 separator = optarg[0];
+                separator_valid = true;
                 break;
             case 'm':
                 try
@@ -167,6 +172,40 @@ int main(int argc, char** argv)
                 {
                     ROS_FATAL(
                             "Could not parse min message length from string %s. The following error was encountered: %d: %s",
+                            optarg,
+                            errno,
+                            ex.what()
+                    );
+                    return 1;
+                }
+            case 'a':
+                try
+                {
+                    max_message_length = std::stol(optarg, NULL);
+                    break;
+                }
+                catch (std::exception ex)
+                {
+                    ROS_FATAL(
+                            "Could not parse max message length from string %s. The following error was encountered: %d: %s",
+                            optarg,
+                            errno,
+                            ex.what()
+                    );
+                    return 1;
+                }
+            case 'h':
+                try
+                {
+                    ss.str(std::string());
+                    ss << std::hex << optarg;
+                    ss >> message_header;
+                    message_header_valid = true;
+                }
+                catch (std::exception ex)
+                {
+                    ROS_FATAL(
+                            "Could not parse header from string %s. The following error was encountered: %d: %s",
                             optarg,
                             errno,
                             ex.what()
@@ -208,8 +247,6 @@ int main(int argc, char** argv)
     }
 
     uint8_t receive_array[RECEIVE_BUFFER_SIZE];
-    ssize_t index = 0;
-
     ros::NodeHandle nh;
 
     ros::Publisher publisher = nh.advertise<magellan_messages::MsgSerialPortLine>("output_topic", 1000);
@@ -217,9 +254,13 @@ int main(int argc, char** argv)
 
     // TODO: proper rate?
     ros::Rate loop_rate(1000);
+    bool message_started = false;
+    magellan_messages::MsgSerialPortLine serial_port_output_data;
+    serial_port_output_data.data.reserve(1000); //TODO: Is there a better way of determining this buffer size?
+
     while(ros::ok())
     {
-        ssize_t num_bytes_read = read(serial_port, receive_array + index, RECEIVE_BUFFER_SIZE - index);
+        ssize_t num_bytes_read = read(serial_port, receive_array, RECEIVE_BUFFER_SIZE);
 
         if (num_bytes_read < 0)
         {
@@ -235,22 +276,39 @@ int main(int argc, char** argv)
         }
         else
         {
-            index += num_bytes_read;
-            
-            if (index > min_message_length && receive_array[index] == separator)
+            for (int i = 0; i < num_bytes_read; i++)
             {
-                magellan_messages::MsgSerialPortLine serial_port_output_data;
-                serial_port_output_data.data.reserve(index);
+                uint8_t current_byte = receive_array[i];
 
-                for (ssize_t i = 0; i < index; i++)
+                // Check if byte is valid
+                if (!message_header_valid || current_byte == message_header)
                 {
-                    serial_port_output_data.data.push_back(receive_array[i]);
+                    message_started = true;
+                }
+
+                if (!message_started)
+                {
+                    continue;
                 }
                 
-                publisher.publish(serial_port_output_data);
+                serial_port_output_data.data.push_back(current_byte);
 
-                index = 0;
-                num_bytes_read = 0;
+                // Check for send conditions
+                size_t num_bytes = serial_port_output_data.data.size();
+                if (num_bytes < min_message_length)
+                {
+                    continue;
+                }
+
+                if (num_bytes >= max_message_length
+                        ||
+                    ((separator_valid) && (current_byte == separator)))
+                {
+                    serial_port_output_data.header.stamp = ros::Time::now(); //TODO: is this needed?
+                     publisher.publish(serial_port_output_data);
+                     serial_port_output_data.data.clear();
+                     message_started = false;
+                }
             }
         }
         
