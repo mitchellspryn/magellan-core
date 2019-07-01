@@ -33,10 +33,10 @@ void reset_lidar_scan()
 
 uint32_t compute_checksum(const std::vector<uint8_t> &data)
 {
-  uint8_t data_list[10];
+  uint32_t data_list[10];
   for (int i = 0; i < 10; i++)
   {
-    data_list[i] = data[2*i] + (data[2*i+1] << 8);
+    data_list[i] = data[2*i] + (data[(2*i)+1] << 8);
   }
 
   uint32_t checksum_tmp = 0;
@@ -46,7 +46,7 @@ uint32_t compute_checksum(const std::vector<uint8_t> &data)
   }
 
   uint32_t checksum = (checksum_tmp & 0x7FFF) + (checksum_tmp >> 15);
-  return checksum;
+  return checksum & 0x7FFF;
 }
 
 bool packet_valid(const magellan_messages::MsgSerialPortLine::ConstPtr &input_data)

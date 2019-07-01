@@ -1,0 +1,13 @@
+<launch>
+    <node name="lidar_serial_port" pkg="magellan_serial_port" type="node" args="-n /dev/ttyACM0 -b 115200 -m 22 -a 22 -h FA">
+        <remap from="output_topic" to="/lidar_serial_port/output_topic" />
+    </node>
+
+    <node name="lidar_sensor_reader" pkg="lidar_sensor_reader" type="node" args="-m 20">
+        <remap from="input_topic" to="/lidar_serial_port/output_topic" />
+        <remap from="output_topic" to="/lidar_sensor_reader/output_topic" />
+    </node>
+
+    <node name="raw_data_recorder" pkg="rosbag" type="record" args="/lidar_serial_port/output_topic -o LidarRawData" />
+    <node name="processed_data_recorder" pkg="rosbag" type="record" args="/lidar_sensor_reader/output_topic -o LidarProcessedData" />
+</launch>
