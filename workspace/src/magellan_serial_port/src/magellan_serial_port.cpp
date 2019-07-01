@@ -107,20 +107,21 @@ int main(int argc, char** argv)
 
     char serial_port_name[USB_PORT_MAX_LEN];
     size_t baud;
-    char separator;
+    uint8_t separator;
     bool separator_valid = false;
     size_t min_message_length = 0;
     size_t max_message_length = std::numeric_limits<size_t>::max();
-    char message_header;
+    uint8_t message_header;
     bool message_header_valid = false;
     unsigned char closing_command[CLOSING_CMD_MAX_LEN];
     size_t closing_command_length = 0;
+
+    closing_command[0] = 0;
 
     int c;
     while((c = getopt(argc, argv, "n:b:s:m:a:h:c:")) != -1)
     {
         size_t len = 0;
-        std::stringstream ss;
         switch (c)
         {
             case 'n':
@@ -197,9 +198,7 @@ int main(int argc, char** argv)
             case 'h':
                 try
                 {
-                    ss.str(std::string());
-                    ss << std::hex << optarg;
-                    ss >> message_header;
+                    message_header = std::stol(optarg, NULL, 16);
                     message_header_valid = true;
                 }
                 catch (std::exception ex)
@@ -234,9 +233,11 @@ int main(int argc, char** argv)
     if (serial_port < 0)
     {
         ROS_FATAL(
-                "Could not open serial port %s.",
-                serial_port_name
+                "Could not open serial port %s. Open returns %d",
+                serial_port_name,
+                serial_port
         );
+
         return 1;
     }
 
@@ -247,6 +248,13 @@ int main(int argc, char** argv)
     }
 
     uint8_t receive_array[RECEIVE_BUFFER_SIZE];
+
+    // for now
+    for (unsigned int i = 0; i < RECEIVE_BUFFER_SIZE; i++)
+    {
+        receive_array[i] = 0;
+    }
+
     ros::NodeHandle nh;
 
     ros::Publisher publisher = nh.advertise<magellan_messages::MsgSerialPortLine>("output_topic", 1000);
