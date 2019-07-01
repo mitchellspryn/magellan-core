@@ -164,3 +164,4 @@ workspace/devel
 
 .vs
 Debug/
+.gdb_history
