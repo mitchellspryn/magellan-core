@@ -30,7 +30,7 @@ void init_gps()
 	// If the battery dies, replace it and send the following commands to the device:
 	// 
 	// "$PMTK251,38400*27\r\n"                                    -- Set baud rate to 38400
-	// "$PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*29\r\n"    -- Enable only GPRMC output
+	// "$PMTK314,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*29\r\n"    -- Enable only GPGGA output 
 	// "$PMTK300,200,0,0,0,0*2F\r\n"                              -- Set GPS fix to 5 hz
 	// "$PMTK220,200*2C\r\n"                                      -- Set NMEA sentence output to 5 hz
 	//

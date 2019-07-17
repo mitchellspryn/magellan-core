@@ -24,40 +24,48 @@ typedef struct ClientTxBuf_t
 } ClientTxBuf_t;
 
 static void init_client_serial_port();
-static void send_client_message(const char* message);
+static void send_client_message_string(const char* message);
+static void send_client_message(const char* message, size_t length);
 
 static ClientTxBuf_t ClientTxBuf;
 
 int main(void)
 {
+	for (long i = 0; i < CLIENT_TX_BUF_LEN + 2; i++)
+	{
+		ClientTxBuf.Buffer[i] = 0xBA;
+	}
+
     init_client_serial_port();
-	send_client_message("Starting...\n");
+	send_client_message_string("Starting...\n");
 
 	if (!init_imu())
 	{
 		for (;;)
 		{
-			send_client_message("Could not initialize IMU.\n");
+			send_client_message_string("Could not initialize IMU.\n");
 			delay_one_second();
 		}
 	}
-	send_client_message("Initialized IMU.\n");
+	send_client_message_string("Initialized IMU.\n");
 
 	init_gps();
-	send_client_message("Initialized GPS.\n");
+	send_client_message_string("Initialized GPS.\n");
+
+	ClientTxBuf.Buffer[0] = 0xFA; // start byte
 
 	sei();
 	for (;;)
 	{
-		ClientTxBuf.Index = 0;
-		ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
+		ClientTxBuf.Index = 1;
+		ClientTxBuf.Index += read_and_append_imu_reading(ClientTxBuf.Buffer + ClientTxBuf.Index, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
 		ClientTxBuf.Index += append_gps_reading(ClientTxBuf.Buffer + ClientTxBuf.Index, CLIENT_TX_BUF_LEN - ClientTxBuf.Index);
 		
-		if (ClientTxBuf.Index > 0)
+		if (ClientTxBuf.Index > 1)
 		{
 			ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
-			ClientTxBuf.Buffer[ClientTxBuf.Index] = '\0';
-			send_client_message(ClientTxBuf.Buffer);
+			ClientTxBuf.Buffer[ClientTxBuf.Index++] = 0;
+			send_client_message(ClientTxBuf.Buffer, ClientTxBuf.Index);
 		}
 	}
 }
@@ -87,11 +95,18 @@ void init_client_serial_port()
 	UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00);
 }
 
-void send_client_message(const char* message)
+void send_client_message_string(const char* message)
 {
-	for (; *message; message++)
+	size_t length = strlen(message);
+	send_client_message(message, length);
+}
+
+void send_client_message(const char* message, size_t length)
+{
+	const char* workptr = message;
+	for (; workptr - message < length; workptr++)
 	{
-		UDR0 = *message;
+		UDR0 = *workptr;
 		while(!(UCSR0A & (1 << UDRE0))) {};
 	}
 }

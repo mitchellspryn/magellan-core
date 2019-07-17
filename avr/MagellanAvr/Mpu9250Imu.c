@@ -57,7 +57,7 @@ int init_imu()
 	write_spi_byte(SAMPLE_RATE_DIVIDER_MPU9250, 0x04);
 
 	// Enable low pass filter on gyros by clearing FChoice_b bits.
-	// Also set scale to 2509 deg / sec. This will give us the most accuracy.
+	// Also set scale to 250 deg / sec. This will give us the most accuracy.
 	char gyro_config = read_spi_byte(GYRO_CONFIG_MPU9250);
 	gyro_config &= ~( (1 << 4) | (1 << 3) | (1 << 1) | (1 << 0) );
 	write_spi_byte(GYRO_CONFIG_MPU9250, gyro_config);
@@ -148,7 +148,11 @@ int init_imu()
 
 size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 {
-	
+	if (remainingBytes <= MESSAGE_LENGTH)
+	{
+		return 0;
+	}
+
 	unsigned char data[14];
 
 	read_spi_bytes(DATA_START_MPU9250, data, 14);
@@ -180,9 +184,9 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 		data[i] = read_spi_byte(I2C_SLV4_DI_MPU9250);
 	}
 
-	uint16_t magX = 0xFF;
-	uint16_t magY = 0xFF;
-	uint16_t magZ = 0xFF;
+	uint16_t magX = 0xFFFF;
+	uint16_t magY = 0xFFFF;
+	uint16_t magZ = 0xFFFF;
 	if (!(data[6] & 0x08))
 	{
 		magX = (data[0] << 8) | data[1];
@@ -190,20 +194,41 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 		magZ = (data[4] << 8) | data[5];
 	}
 
-	// TODO: This should be made much more elegant.
-	sprintf(buffer, "IMU: ax:%d, ay:%d, az:%d, tmp:%d, gx:%d, gy:%d, gz:%d, mx:%d, my:%d, mz:%d|",
-		accelX,
-		accelY,
-		accelZ,
-		temp,
-		gyroX,
-		gyroY,
-		gyroZ, 
-		magX,
-		magY,
-		magZ);
+	*buffer++ = 'I';
+	*buffer++ = 'M';
+	*buffer++ = 'U';
+	*buffer++ = ':';
 
-	return strlen(buffer);
+	// This doesn't get unrolled automatically by GCC. 
+	*buffer++ = (char)(accelX >> 8);
+	*buffer++ = (char)(accelX & 0xFF);
+	*buffer++ = (char)(accelY >> 8);
+	*buffer++ = (char)(accelY & 0xFF);
+	*buffer++ = (char)(accelZ >> 8);
+	*buffer++ = (char)(accelZ & 0xFF);
+
+	*buffer++ = (char)(temp >> 8);
+	*buffer++ = (char)(temp & 0xFF);
+
+	*buffer++ = (char)(gyroX >> 8);
+	*buffer++ = (char)(gyroX & 0xFF);
+	*buffer++ = (char)(gyroY >> 8);
+	*buffer++ = (char)(gyroY & 0xFF);
+	*buffer++ = (char)(gyroZ >> 8);
+	*buffer++ = (char)(gyroZ & 0xFF);
+
+	// Magnetometer reading is 14 bit
+	*buffer++ = (char)(magX >> 8);
+	*buffer++ = (char)(magX & 0x3F);
+	*buffer++ = (char)(magY >> 8);
+	*buffer++ = (char)(magY & 0x3F);
+	*buffer++ = (char)(magZ >> 8);
+	*buffer++ = (char)(magZ & 0x3F);
+
+	*buffer++ = '|';
+	*buffer = 0;
+
+	return MESSAGE_LENGTH;
 }
 
 

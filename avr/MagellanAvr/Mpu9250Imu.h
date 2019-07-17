@@ -53,4 +53,6 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes);
 #define DATA_START_AK8963           0x03
 #define CTRL1_AK8963                0x0A
 
+#define MESSAGE_LENGTH              25 // Number of bytes in the message
+
 #endif /* MPU9250IMU_H_ */
