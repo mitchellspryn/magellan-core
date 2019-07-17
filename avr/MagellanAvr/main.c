@@ -63,7 +63,7 @@ int main(void)
 		
 		if (ClientTxBuf.Index > 1)
 		{
-			ClientTxBuf.Buffer[ClientTxBuf.Index++] = '\n';
+			ClientTxBuf.Buffer[ClientTxBuf.Index++] = '?';
 			ClientTxBuf.Buffer[ClientTxBuf.Index++] = 0;
 			send_client_message(ClientTxBuf.Buffer, ClientTxBuf.Index);
 		}

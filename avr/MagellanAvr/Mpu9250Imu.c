@@ -231,8 +231,6 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 	return MESSAGE_LENGTH;
 }
 
-
-
 static void write_spi_bytes(unsigned char startAddress, unsigned char* data, size_t num_bytes)
 {
 	PORTL &= ~(1 << 0);
