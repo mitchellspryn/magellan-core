@@ -219,11 +219,11 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 
 	// Magnetometer reading is 14 bit
 	*buffer++ = (char)(magX >> 8);
-	*buffer++ = (char)(magX & 0x3F);
+	*buffer++ = (char)(magX & 0xFF);
 	*buffer++ = (char)(magY >> 8);
-	*buffer++ = (char)(magY & 0x3F);
+	*buffer++ = (char)(magY & 0xFF);
 	*buffer++ = (char)(magZ >> 8);
-	*buffer++ = (char)(magZ & 0x3F);
+	*buffer++ = (char)(magZ & 0xFF);
 
 	*buffer++ = '|';
 	*buffer = 0;
