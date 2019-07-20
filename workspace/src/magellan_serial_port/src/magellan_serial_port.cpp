@@ -7,12 +7,15 @@
 #include <termios.h>
 #include <errno.h>
 #include <limits>
+#include <signal.h>
 
 #define USB_PORT_MAX_LEN 128
 #define CLOSING_CMD_MAX_LEN 1024
 #define RECEIVE_BUFFER_SIZE 4096
 
 static int serial_port = -1;
+static unsigned char closing_command[CLOSING_CMD_MAX_LEN];
+static size_t closing_command_length = 0;
 
 bool init_serial_port(long baud, const char* serial_port_name)
 {
@@ -21,7 +24,7 @@ bool init_serial_port(long baud, const char* serial_port_name)
 
     if (tcgetattr(serial_port, &tty))
     {
-        ROS_FATAL(
+        ROS_ERROR(
                 "Could not read attributes from serial port %s. Received error %d: %s",
                 serial_port_name,
                 errno,
@@ -40,9 +43,17 @@ bool init_serial_port(long baud, const char* serial_port_name)
     tty.c_lflag &= ~ECHO;
     tty.c_lflag &= ~ECHOE;
     tty.c_lflag &= ~ECHONL;
+    tty.c_lflag &= ~ISIG;
 
     tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-    tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); 
+    //tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); 
+    tty.c_iflag |= IGNBRK;
+    tty.c_iflag &= ~BRKINT;
+    tty.c_iflag &= ~PARMRK;
+    tty.c_iflag &= ~ISTRIP;
+    tty.c_iflag &= ~INLCR;
+    tty.c_iflag &= ~IGNCR;
+    tty.c_iflag &= ~ICRNL;
 
     tty.c_oflag &= ~OPOST;
     tty.c_oflag &= ~ONLCR;
@@ -50,12 +61,28 @@ bool init_serial_port(long baud, const char* serial_port_name)
     tty.c_cc[VMIN] = 0;
     tty.c_cc[VTIME] = 0;
 
-    cfsetispeed(&tty, baud);
-    cfsetospeed(&tty, baud);
+    speed_t baud_speed;
+    if (baud == 115200)
+    {
+        baud_speed = B115200;
+    }
+    else if (baud == 38400)
+    {
+        baud_speed = B38400;
+    }
+    else
+    {
+        ROS_ERROR("Attempted to set baud to %d, which is not supported.",
+                baud_speed);
+        return false;
+    }
+
+    cfsetispeed(&tty, baud_speed);
+    cfsetospeed(&tty, baud_speed);
 
     if (tcsetattr(serial_port, TCSANOW, &tty)) 
     {
-        ROS_FATAL(
+        ROS_ERROR(
                 "Could not write attributes to serial port %s. Received error %d: %s",
                 serial_port_name,
                 errno, 
@@ -101,6 +128,19 @@ void message_received_callback(const magellan_messages::MsgSerialPortLine::Const
     write_data_to_serial_port(&input_data->data[0], input_data->data.size());
 }
 
+void sigint_handler(int dummy)
+{
+    if (closing_command_length > 0 && serial_port > 0)
+    {
+        write_data_to_serial_port(closing_command, closing_command_length);
+    }
+
+    close(serial_port);
+    serial_port = -1;
+
+    ros::shutdown();
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "magellan_serial_port");
@@ -113,8 +153,6 @@ int main(int argc, char** argv)
     size_t max_message_length = std::numeric_limits<size_t>::max();
     uint8_t message_header;
     bool message_header_valid = false;
-    unsigned char closing_command[CLOSING_CMD_MAX_LEN];
-    size_t closing_command_length = 0;
 
     closing_command[0] = 0;
 
@@ -128,7 +166,7 @@ int main(int argc, char** argv)
                 len = strnlen(optarg, USB_PORT_MAX_LEN + 1);
                 if (len > USB_PORT_MAX_LEN)
                 {
-                    ROS_FATAL("The USB port name is too long.");
+                    ROS_ERROR("The USB port name is too long.");
                     return 1;
                 }
 
@@ -142,7 +180,7 @@ int main(int argc, char** argv)
                 }
                 catch (std::exception ex)
                 {
-                    ROS_FATAL(
+                    ROS_ERROR(
                             "Could not parse baud rate argument from string %s. The following error was encountered: %d: %s",
                             optarg,
                             errno, 
@@ -153,7 +191,7 @@ int main(int argc, char** argv)
             case 's':
                 if (strlen(optarg) != 1)
                 {
-                    ROS_FATAL(
+                    ROS_ERROR(
                             "Could not parse separator from string %s. The string was not a single character.",
                             optarg
                     );
@@ -171,7 +209,7 @@ int main(int argc, char** argv)
                 }
                 catch (std::exception ex)
                 {
-                    ROS_FATAL(
+                    ROS_ERROR(
                             "Could not parse min message length from string %s. The following error was encountered: %d: %s",
                             optarg,
                             errno,
@@ -187,7 +225,7 @@ int main(int argc, char** argv)
                 }
                 catch (std::exception ex)
                 {
-                    ROS_FATAL(
+                    ROS_ERROR(
                             "Could not parse max message length from string %s. The following error was encountered: %d: %s",
                             optarg,
                             errno,
@@ -200,10 +238,11 @@ int main(int argc, char** argv)
                 {
                     message_header = std::stol(optarg, NULL, 16);
                     message_header_valid = true;
+                    break;
                 }
                 catch (std::exception ex)
                 {
-                    ROS_FATAL(
+                    ROS_ERROR(
                             "Could not parse header from string %s. The following error was encountered: %d: %s",
                             optarg,
                             errno,
@@ -215,7 +254,7 @@ int main(int argc, char** argv)
                 len = strnlen(optarg, CLOSING_CMD_MAX_LEN + 1);
                 if (len > CLOSING_CMD_MAX_LEN)
                 {
-                    ROS_FATAL(
+                    ROS_ERROR(
                             "The closing command is too long."
                     );
                     return 1;
@@ -228,11 +267,12 @@ int main(int argc, char** argv)
         }
     }
 
+
     serial_port = open(serial_port_name, O_RDWR | O_NONBLOCK);
 
     if (serial_port < 0)
     {
-        ROS_FATAL(
+        ROS_ERROR(
                 "Could not open serial port %s. Open returns %d",
                 serial_port_name,
                 serial_port
@@ -247,7 +287,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    uint8_t receive_array[RECEIVE_BUFFER_SIZE];
+    uint8_t *receive_array = new uint8_t[RECEIVE_BUFFER_SIZE];
 
     // for now
     for (unsigned int i = 0; i < RECEIVE_BUFFER_SIZE; i++)
@@ -260,6 +300,8 @@ int main(int argc, char** argv)
     ros::Publisher publisher = nh.advertise<magellan_messages::MsgSerialPortLine>("output_topic", 1000);
     ros::Subscriber subscriber = nh.subscribe<magellan_messages::MsgSerialPortLine>("input_topic", 1000, message_received_callback);
 
+    signal(SIGINT, sigint_handler);
+
     // TODO: proper rate?
     ros::Rate loop_rate(1000);
     bool message_started = false;
@@ -268,13 +310,13 @@ int main(int argc, char** argv)
 
     while(ros::ok())
     {
-        ssize_t num_bytes_read = read(serial_port, receive_array, RECEIVE_BUFFER_SIZE);
+        ssize_t num_bytes_read = read(serial_port, receive_array, RECEIVE_BUFFER_SIZE - 1);
 
         if (num_bytes_read < 0)
         {
             if (errno != EAGAIN || errno != EWOULDBLOCK || errno != EINTR)
             {
-                ROS_WARN(
+                ROS_ERROR(
                         "Could not read from serial port %s. Error: %d: %s",
                         serial_port_name,
                         errno,
@@ -284,7 +326,7 @@ int main(int argc, char** argv)
         }
         else
         {
-            for (int i = 0; i < num_bytes_read; i++)
+            for (ssize_t i = 0; i < num_bytes_read; i++)
             {
                 uint8_t current_byte = receive_array[i];
 
@@ -313,9 +355,9 @@ int main(int argc, char** argv)
                     ((separator_valid) && (current_byte == separator)))
                 {
                     serial_port_output_data.header.stamp = ros::Time::now(); //TODO: is this needed?
-                     publisher.publish(serial_port_output_data);
-                     serial_port_output_data.data.clear();
-                     message_started = false;
+                    publisher.publish(serial_port_output_data);
+                    serial_port_output_data.data.clear();
+                    message_started = false;
                 }
             }
         }
@@ -325,11 +367,7 @@ int main(int argc, char** argv)
         loop_rate.sleep();
     }
 
-    if (closing_command_length > 0)
-    {
-        write_data_to_serial_port(closing_command, closing_command_length);
-    }
+    delete receive_array;
 
-    close(serial_port);
-    serial_port = -1;
+    return 0;
 }
