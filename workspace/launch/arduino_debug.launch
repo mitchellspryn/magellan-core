@@ -1,0 +1,15 @@
+<launch>
+    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n /dev/ttyACM0 -b 38400 -s ? -m 25 -a 128 -h FA">
+        <remap from="output_topic" to="/arduino_serial_port/output_topic" />
+    </node>
+
+    <node name="arduino_sensor_reader" pkg="arduino_sensor_reader" type="node" args="-m 20">
+        <remap from="input_topic" to="/arduino_serial_port/output_topic" />
+        <remap from="output_topic_gps" to="/arduino_sensor_reader/output_topic_gps" />
+        <remap from="output_topic_imu" to="/arduino_sensor_reader/output_topic_imu" />
+    </node>
+
+    <node name="raw_data_recorder" pkg="rosbag" type="record" args="/arduino_serial_port/output_topic -o ArduinoRawData" />
+    <node name="processed_data_recorder_gps" pkg="rosbag" type="record" args="/arduino_sensor_reader/output_topic_gps -o ArduinoProcessedDataGps" />
+    <node name="processed_data_recorder_imu" pkg="rosbag" type="record" args="/arduino_sensor_reader/output_topic_imu -o ArduinoProcessedDataImu" />
+</launch>

@@ -20,16 +20,18 @@
 ros::Publisher gps_publisher;
 ros::Publisher imu_publisher;
 
-size_t find_next_separator(const uint8_t* data, size_t pos, uint8_t separator)
+ssize_t find_next_separator(const uint8_t* data, size_t pos, uint8_t separator, ssize_t length)
 {
-    size_t index = pos;
+    ssize_t index = pos;
 
-    while(data[index])
+    while(index < length)
     {
         if (data[index] == separator)
         {
             return index;
         }
+
+        index++;
     }
 
     return -1;
@@ -37,48 +39,48 @@ size_t find_next_separator(const uint8_t* data, size_t pos, uint8_t separator)
 
 bool process_imu_packet(magellan_messages::MsgMagellanImu &imu_message, const uint8_t* data, size_t start_index, size_t end_index)
 {
-    uint16_t x;
-    uint16_t y;
-    uint16_t z;
+    int16_t x;
+    int16_t y;
+    int16_t z;
 
-    constexpr float accel_scale = GRAVITATIONAL_CONSTANT * 2.0 / 32767.5;
-    constexpr float gyro_scale = (250.0 / 32765.5) * (M_PI / 180.0);
-    constexpr float mag_scale = 10.0 * 4192.0 / 8189.5;
+    constexpr double accel_scale = GRAVITATIONAL_CONSTANT * 2.0 / 32767.5;
+    constexpr double gyro_scale = (250.0 / 32765.5) * (M_PI / 180.0);
+    constexpr double mag_scale = 10.0 * 4192.0 / 8189.5;
 
     // Read accelerometer data
-    x = (static_cast<uint16_t>(data[0]) << 8) | static_cast<uint16_t>(data[1]);
-    y = (static_cast<uint16_t>(data[2]) << 8) | static_cast<uint16_t>(data[3]);
-    z = (static_cast<uint16_t>(data[4]) << 8) | static_cast<uint16_t>(data[5]);
+    x = (static_cast<int16_t>(data[start_index]) << 8) | static_cast<int16_t>(data[start_index + 1]);
+    y = (static_cast<int16_t>(data[start_index + 2]) << 8) | static_cast<int16_t>(data[start_index + 3]);
+    z = (static_cast<int16_t>(data[start_index + 4]) << 8) | static_cast<int16_t>(data[start_index + 5]);
 
-    imu_message.imu.linear_acceleration.x = static_cast<float>(x) * accel_scale;
-    imu_message.imu.linear_acceleration.y = static_cast<float>(y) * accel_scale;
-    imu_message.imu.linear_acceleration.z = static_cast<float>(z) * accel_scale;
+    imu_message.imu.linear_acceleration.x = static_cast<double>(x) * accel_scale;
+    imu_message.imu.linear_acceleration.y = static_cast<double>(y) * accel_scale;
+    imu_message.imu.linear_acceleration.z = static_cast<double>(z) * accel_scale;
 
     // Read in temperature data
-    x = (static_cast<uint16_t>(data[6]) << 8) | static_cast<uint16_t>(data[7]);
+    x = (static_cast<int16_t>(data[start_index + 6]) << 8) | static_cast<int16_t>(data[start_index + 7]);
 
     // TODO: This came from sparkfun's website.
     // No idea if it's correct.
     imu_message.temperature = (static_cast<float>(x) / 333.87) + 21.0; 
     
     // Read in gyroscope data
-    x = (static_cast<uint16_t>(data[8]) << 8) | static_cast<uint16_t>(data[9]);
-    y = (static_cast<uint16_t>(data[10]) << 8) | static_cast<uint16_t>(data[11]);
-    z = (static_cast<uint16_t>(data[12]) << 8) | static_cast<uint16_t>(data[13]);
+    x = (static_cast<int16_t>(data[start_index + 8]) << 8) | static_cast<int16_t>(data[start_index + 9]);
+    y = (static_cast<int16_t>(data[start_index + 10]) << 8) | static_cast<int16_t>(data[start_index + 11]);
+    z = (static_cast<int16_t>(data[start_index + 12]) << 8) | static_cast<int16_t>(data[start_index + 13]);
 
-    imu_message.imu.angular_velocity.x = static_cast<float>(x) * gyro_scale;
-    imu_message.imu.angular_velocity.y = static_cast<float>(y) * gyro_scale;
-    imu_message.imu.angular_velocity.z = static_cast<float>(z) * gyro_scale;
+    imu_message.imu.angular_velocity.x = static_cast<double>(x) * gyro_scale;
+    imu_message.imu.angular_velocity.y = static_cast<double>(y) * gyro_scale;
+    imu_message.imu.angular_velocity.z = static_cast<double>(z) * gyro_scale;
 
     // Read in magnetometer data
-    
-    x = (static_cast<uint16_t>(data[14]) << 8) | static_cast<uint16_t>(data[15]);
-    y = (static_cast<uint16_t>(data[16]) << 8) | static_cast<uint16_t>(data[17]);
-    z = (static_cast<uint16_t>(data[18]) << 8) | static_cast<uint16_t>(data[19]);
+    // Magnetometer data is 14 bit 
+    x = (static_cast<int16_t>(data[start_index + 14]) << 8) | static_cast<int16_t>(data[start_index + 15]);
+    y = (static_cast<int16_t>(data[start_index + 16]) << 8) | static_cast<int16_t>(data[start_index + 17]);
+    z = (static_cast<int16_t>(data[start_index + 18]) << 8) | static_cast<int16_t>(data[start_index + 19]);
 
-    imu_message.magnetometer.x = static_cast<float>(x) * mag_scale;
-    imu_message.magnetometer.y = static_cast<float>(y) * mag_scale;
-    imu_message.magnetometer.z = static_cast<float>(z) * mag_scale;
+    imu_message.magnetometer.x = static_cast<double>(x - 8192) * mag_scale;
+    imu_message.magnetometer.y = static_cast<double>(y - 8192) * mag_scale;
+    imu_message.magnetometer.z = static_cast<double>(z - 8192) * mag_scale;
 
     float length = (imu_message.magnetometer.x * imu_message.magnetometer.x) +
                     (imu_message.magnetometer.y * imu_message.magnetometer.y) +
@@ -148,7 +150,7 @@ float gps_nmea_to_decimal(std::string nmea)
 
 bool process_gps_packet(sensor_msgs::NavSatFix &gps_message, const uint8_t* data, size_t start_index, size_t end_index)
 {
-    if (strncmp(reinterpret_cast<const char*>(data), "$GPRMC,", 7))
+    if (strncmp(reinterpret_cast<const char*>(data + start_index), "$GPGGA,", 7))
     {
         return false;
     }
@@ -199,12 +201,23 @@ void message_received_callback(const magellan_messages::MsgSerialPortLine::Const
     bool imu_message_valid = false;
     bool gps_message_valid = false;
 
+    if (input_data->data[0] != 0xFA)
+    {
+        ROS_ERROR("Incorrect packet header.");
+        return;
+    }
+
     sensor_msgs::NavSatFix gps_message;
     magellan_messages::MsgMagellanImu imu_message;
 
-    size_t packet_start_index = 0;
+    if (input_data->data.size() > 30)
+    {
+        int k = 0;
+    }
+
+    size_t packet_start_index = 1;
     const uint8_t* data_start = &(input_data->data[0]);
-    size_t packet_end_index = find_next_separator(data_start, 0, PACKET_SEPARATOR);
+    ssize_t packet_end_index = find_next_separator(data_start, 0, PACKET_SEPARATOR, input_data->data.size());
 
     while (packet_end_index > 0)
     {
@@ -220,7 +233,7 @@ void message_received_callback(const magellan_messages::MsgSerialPortLine::Const
         }
 
         packet_start_index = packet_end_index + 1;
-        packet_end_index = find_next_separator(data_start, packet_start_index, PACKET_SEPARATOR);
+        packet_end_index = find_next_separator(data_start, packet_start_index, PACKET_SEPARATOR, input_data->data.size());
     }
 
     ros::Time time = ros::Time::now();
@@ -242,11 +255,10 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "arduino_sensor_reader");
 
-
     ros::NodeHandle nh;
    
-    gps_publisher = nh.advertise<sensor_msgs::NavSatFix>("output_gps", 1000);
-    imu_publisher = nh.advertise<magellan_messages::MsgMagellanImu>("output_imu", 1000);
+    gps_publisher = nh.advertise<sensor_msgs::NavSatFix>("output_topic_gps", 1000);
+    imu_publisher = nh.advertise<magellan_messages::MsgMagellanImu>("output_topic_imu", 1000);
 
     ros::Subscriber subscriber = nh.subscribe<magellan_messages::MsgSerialPortLine>("input_topic", 1000, message_received_callback);
 
