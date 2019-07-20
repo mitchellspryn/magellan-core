@@ -78,9 +78,9 @@ bool process_imu_packet(magellan_messages::MsgMagellanImu &imu_message, const ui
     y = (static_cast<int16_t>(data[start_index + 16]) << 8) | static_cast<int16_t>(data[start_index + 17]);
     z = (static_cast<int16_t>(data[start_index + 18]) << 8) | static_cast<int16_t>(data[start_index + 19]);
 
-    imu_message.magnetometer.x = static_cast<double>(x - 8192) * mag_scale;
-    imu_message.magnetometer.y = static_cast<double>(y - 8192) * mag_scale;
-    imu_message.magnetometer.z = static_cast<double>(z - 8192) * mag_scale;
+    imu_message.magnetometer.x = static_cast<double>(x) * mag_scale;
+    imu_message.magnetometer.y = static_cast<double>(y) * mag_scale;
+    imu_message.magnetometer.z = static_cast<double>(z) * mag_scale;
 
     float length = (imu_message.magnetometer.x * imu_message.magnetometer.x) +
                     (imu_message.magnetometer.y * imu_message.magnetometer.y) +
@@ -209,11 +209,6 @@ void message_received_callback(const magellan_messages::MsgSerialPortLine::Const
 
     sensor_msgs::NavSatFix gps_message;
     magellan_messages::MsgMagellanImu imu_message;
-
-    if (input_data->data.size() > 30)
-    {
-        int k = 0;
-    }
 
     size_t packet_start_index = 1;
     const uint8_t* data_start = &(input_data->data[0]);
