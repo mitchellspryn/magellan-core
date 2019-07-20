@@ -184,14 +184,15 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 		data[i] = read_spi_byte(I2C_SLV4_DI_MPU9250);
 	}
 
-	uint16_t magX = 0xFFFF;
-	uint16_t magY = 0xFFFF;
-	uint16_t magZ = 0xFFFF;
+	// Magnetometer is opposite endian as the accelerometer.
+	int16_t magX = 0xFFFF;
+	int16_t magY = 0xFFFF;
+	int16_t magZ = 0xFFFF;
 	if (!(data[6] & 0x08))
 	{
-		magX = (data[0] << 8) | data[1];
-		magY = (data[2] << 8) | data[3];
-		magZ = (data[4] << 8) | data[5];
+		magX = (data[1] << 8) | data[0];
+		magY = (data[3] << 8) | data[2];
+		magZ = (data[5] << 8) | data[4];
 	}
 
 	*buffer++ = 'I';
