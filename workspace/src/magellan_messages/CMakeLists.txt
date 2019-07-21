@@ -15,6 +15,7 @@ add_message_files(
     cone_detector/MsgConeDetectorOutput.msg
     magellan_serial_port/MsgSerialPortLine.msg
     magellan_imu/MsgMagellanImu.msg
+    magellan_drive/MsgMagellanDrive.msg
 )
 
 generate_messages(

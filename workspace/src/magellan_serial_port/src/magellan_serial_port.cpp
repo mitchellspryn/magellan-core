@@ -14,8 +14,8 @@
 #define RECEIVE_BUFFER_SIZE 4096
 
 static int serial_port = -1;
-static unsigned char closing_command[CLOSING_CMD_MAX_LEN];
 static size_t closing_command_length = 0;
+static bool is_attached_to_motor = 0;
 
 bool init_serial_port(long baud, const char* serial_port_name)
 {
@@ -130,9 +130,16 @@ void message_received_callback(const magellan_messages::MsgSerialPortLine::Const
 
 void sigint_handler(int dummy)
 {
-    if (closing_command_length > 0 && serial_port > 0)
+    if (is_attached_to_motor)
     {
-        write_data_to_serial_port(closing_command, closing_command_length);
+        unsigned char stop_motor_one_a[] = {128, 0, 0, 0x3b, 0x5A};
+        unsigned char stop_motor_two_a[] = {128, 4, 0, 0xF7, 0x9E};
+        unsigned char stop_motor_one_b[] = {129, 0, 0, 0x0C, 0x6A};
+        unsigned char stop_motor_two_b[] = {129, 4, 0, 0xC0, 0xAE};
+        write_data_to_serial_port(stop_motor_one_a, 5);
+        write_data_to_serial_port(stop_motor_two_a, 5);
+        write_data_to_serial_port(stop_motor_one_b, 5);
+        write_data_to_serial_port(stop_motor_two_b, 5);
     }
 
     close(serial_port);
@@ -153,8 +160,6 @@ int main(int argc, char** argv)
     size_t max_message_length = std::numeric_limits<size_t>::max();
     uint8_t message_header;
     bool message_header_valid = false;
-
-    closing_command[0] = 0;
 
     int c;
     while((c = getopt(argc, argv, "n:b:s:m:a:h:c:")) != -1)
@@ -250,19 +255,8 @@ int main(int argc, char** argv)
                     );
                     return 1;
                 }
-            case 'c':
-                len = strnlen(optarg, CLOSING_CMD_MAX_LEN + 1);
-                if (len > CLOSING_CMD_MAX_LEN)
-                {
-                    ROS_ERROR(
-                            "The closing command is too long."
-                    );
-                    return 1;
-                }
-
-                //TODO: this is a bit ugly
-                strncpy((char*)closing_command, optarg, CLOSING_CMD_MAX_LEN);
-                closing_command_length = len;
+            case 'o':
+                is_attached_to_motor = true; 
                 break;
         }
     }

@@ -169,6 +169,8 @@ int main(int argc, char** argv)
   	sensor_msgs::ImagePtr msg;
     bool newRgb = false;
     bool newDepth = false;
+    bool opened = false;
+    int failCount = 0;
 
     openni::VideoStream* streams[] {&colorStream, &depthStream};
 
@@ -180,7 +182,13 @@ int main(int argc, char** argv)
 
         if (rc == openni::STATUS_TIME_OUT)
         {
-            ROS_ERROR("Timed out waiting for stream.");
+            // It takes a few seconds for the camera to come up.
+            // Avoid printing errors to stdout until we've connected successfully at least once, or we've tried 100 times.
+            failCount++;
+            if (opened || failCount > 100)
+            {
+                ROS_ERROR("Timed out waiting for stream.");
+            }
         }
         else if (rc != openni::STATUS_OK)
         {
@@ -206,11 +214,13 @@ int main(int argc, char** argv)
 
             if (newRgb && newDepth)
             {
-                cv::Mat cvDepthFrame(depthFrameRef.getHeight(), depthFrameRef.getWidth(), CV_32FC1, (void*)depthFrameRef.getData());
+                cv::Mat cvDepthFrame(depthFrameRef.getHeight(), depthFrameRef.getWidth(), CV_16UC1, (void*)depthFrameRef.getData());
                 cv::Mat cvVideoFrame(rgbFrameRef.getHeight(), rgbFrameRef.getWidth(), CV_8UC3, (void*)rgbFrameRef.getData());
 
                 sensor_msgs::ImagePtr depthMsg = cv_bridge::CvImage(std_msgs::Header(), "mono16", cvDepthFrame).toImageMsg();
                 sensor_msgs::ImagePtr videoMsg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cvVideoFrame).toImageMsg();
+
+                opened = true;
 
                 videoMsg->header = depthMsg->header;
 
