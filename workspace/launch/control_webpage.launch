@@ -1,0 +1,4 @@
+<launch>
+    <node name="control_webpage" pkg="control_webpage" type="control_webpage.py" cwd="node">
+    </node>
+</launch>
