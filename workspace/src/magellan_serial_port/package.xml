@@ -6,6 +6,8 @@
 
   <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
 
+  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
+
   <license>MIT</license>
 
   <buildtool_depend>catkin</buildtool_depend>

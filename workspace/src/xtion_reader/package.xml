@@ -4,8 +4,8 @@
   <version>1.0.0</version>
   <description>This package reads data from the Asus Xtion PRO depth sensor and publishes it to two topics</description>
   <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
-  <license>MIT</license>
   <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
+  <license>MIT</license>
 
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>

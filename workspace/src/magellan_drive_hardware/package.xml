@@ -5,6 +5,7 @@
   <description>This node interfaces with all the hardware that drives the bot.</description>
 
   <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
+  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
   <license>GPLv3</license>
 
   <buildtool_depend>catkin</buildtool_depend>
