@@ -11,12 +11,182 @@
         <title>Hello, world!</title>
     </head>
     <body>
-        <h1>Hello, world!</h1>
+        <div ng-app="controlApp" ng-controller="controlController">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-sm-12 text-center">
+                        <h1>Control</h1>
+                    </div>
+                </div>
 
-        <img id='test_img' src='/image' />
+                <div class="row">
+                    <!--Downward facing camera div-->
+                    <div class="col-sm-4">
+                        <div class="row">
+                            <div class="col-sm-12 text-center">
+                                <h2>Bottom Camera</h2>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <img id="bottom-camera-image" src="{{bottomCameraImageData}}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--Motor control div-->
+                    <div class="col-sm-4">
+                        <div class="row">
+                            <div class="col-sm-4">
+                                <button type="button" class="btn btn-success">
+                                    Set
+                                </button>
+                            </div>
+                            <div class="col-sm-4">
+                                <h1>Motor</h1>
+                            </div>
+                            <div class="col-sm-4">
+                                <button type="button" class="btn btn-failure">
+                                    Kill
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control" ng-value="frontRightMotor" />
+                            </div>
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control" ng-value="backRightMotor" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control" ng-value="frontLeftMotor" />
+                            </div>
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control" ng-value="backLeftMotor" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--IMU info div-->
+                    <div class="col-sm-4">
+                        <div class="row">
+                            <div class="col-sm-12 text-center">
+                                <h2>IMU</h2>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-4">
+                                AX: {{accelX}}
+                            </div>
+                            <div class="col-sm-4">
+                                AY: {{accelY}}
+                            </div>
+                            <div class="col-sm-4">
+                                AZ: {{accelZ}}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-4">
+                                GX: {{gyroX}}
+                            </div>
+                            <div class="col-sm-4">
+                                GY: {{gyroY}}
+                            </div>
+                            <div class="col-sm-4">
+                                GZ: {{gyroZ}}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-4">
+                                MX: {{magX}}
+                            </div>
+                            <div class="col-sm-4">
+                                MY: {{magY}}
+                            </div>
+                            <div class="col-sm-4">
+                                MZ: {{magZ}}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!--Xtion div -->
+                    <div class="col-sm-6">
+                        <div class="row">
+                            <div class="col-sm-12 text-center">
+                                <h2>Xtion</h2>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <img id="xtion-rbg-image" src="{{xtionRgbImageData}}" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <img id="xtion-depth-image" src="{{xtionDepthImageData}}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--Lidar div -->
+                    <div class="col-sm-6">
+                        <div class="row">
+                            <div class="col-sm-12 text-center">
+                                <h2>Lidar</h2>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <img id="lidar-image" src="{{lidarImageData}}" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <script src="static/jquery.js"></script>
         <script src="static/popper.js"></script>
         <script src="static/bootstrap.js"></script>
+        <script src="static/angular.js"></script>
+
+        <script>
+            var app = angular.module('controlApp', [])
+            app.controller('controlController', ['$scope', '$interval', '$http', function($scope, $interval, $http) {
+                $scope.accelX = 1.23;
+                $scope.accelY = 2.34;
+                $scope.accelZ = 3.45;
+                $scope.gyroX = 1.11;
+                $scope.gyroY = 2.22;
+                $scope.gyroZ = 3.33;
+                $scope.magX = 3.21;
+                $scope.magY = 4.32;
+                $scope.magZ = 5.43;
+
+                $scope.frontRightMotor = 5;
+                $scope.backRightMotor = 6;
+                $scope.frontLeftMotor = 7;
+                $scope.backLeftMotor = 8;
+
+                $interval(function() {
+                    $http({
+                        method: 'GET',
+                        url: '/dummy-image'
+                    }).then(function successCallback(response) {
+                        $scope.lidarImageData = response.data.data;
+                        $scope.xtionRgbImageData = response.data.data;
+                        $scope.xtionDepthImageData = response.data.data;
+                        $scope.bottomCameraImageData = response.data.data;
+                    }, function errorCallback(error) {
+                        console.log(error);
+                    });
+
+                }, 10)
+            }]);
+        </script>
     </body>
 </html>

@@ -19,11 +19,12 @@ catkin_package(
 
 catkin_install_python(PROGRAMS
     scripts/control_webpage.py
-    #scripts/control_webpage.html
-    #scripts/bootstrap.css
-    #scripts/bootstrap.js
-    #scripts/popper.js
-    #scripts/jquery.js
+    scripts/control_webpage.html
+    scripts/bootstrap.css
+    scripts/bootstrap.js
+    scripts/popper.js
+    scripts/jquery.js
+    scripts/angular.js
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
