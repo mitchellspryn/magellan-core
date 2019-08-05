@@ -162,7 +162,7 @@ int main(int argc, char** argv)
     bool message_header_valid = false;
 
     int c;
-    while((c = getopt(argc, argv, "n:b:s:m:a:h:c:")) != -1)
+    while((c = getopt(argc, argv, "n:b:s:m:a:h:c:o")) != -1)
     {
         size_t len = 0;
         switch (c)

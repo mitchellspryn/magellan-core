@@ -145,7 +145,7 @@ void message_received_callback(const magellan_messages::MsgSerialPortLine::Const
     {
         // TODO: do something with the range error (bit 7) and strength error (bit 6) flags in range_upper
         uint8_t range_lower = input_data->data[4 + (4*i)];     
-        uint8_t range_upper = input_data->data[5 + (4*i)] * 0x3F;
+        uint8_t range_upper = input_data->data[5 + (4*i)] & 0x3F;
         uint8_t intensity_lower = input_data->data[6 + (4*i)];
         uint8_t intensity_upper = input_data->data[7 + (4*i)];
 

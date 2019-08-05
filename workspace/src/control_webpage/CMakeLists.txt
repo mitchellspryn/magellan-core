@@ -11,10 +11,10 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(OpenCV REQUIRED)
-find_package(OpenNI2 REQUIRED)
 
 catkin_package(
     CATKIN_DEPENDS rospy image_transport cv_bridge message_runtime sensor_msgs magellan_messages geometry_msgs std_msgs 
+    DEPENDS OpenCV
 )
 
 catkin_install_python(PROGRAMS
@@ -25,6 +25,7 @@ catkin_install_python(PROGRAMS
     scripts/popper.js
     scripts/jquery.js
     scripts/angular.js
+    scripts/gamepad.js
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

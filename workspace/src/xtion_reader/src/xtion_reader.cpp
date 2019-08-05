@@ -104,12 +104,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-    if (deviceId == NULL)
-    {
-        ROS_FATAL("Could not identify the deviceId. Please pass -i parameter.");
-        abort();
-    }
-
     openni::Status rc = openni::OpenNI::initialize();
     if (rc != openni::STATUS_OK)
     {
@@ -126,7 +120,9 @@ int main(int argc, char** argv)
     bool depthOn = false;
     bool colorOn = false;
 
+    // NULL is OK for deviceId, evaluates to ANY_DEVICE
     rc = device.open(deviceId);
+
     if (rc != openni::STATUS_OK)
     {
         ROS_FATAL("Could not open device with URI %s", deviceId);

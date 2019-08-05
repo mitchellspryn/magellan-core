@@ -18,7 +18,7 @@
 #define CMD_GET_M1_MAX_CURRENT 135
 #define CMD_GET_M2_MAX_CURRENT 136
 #define LEFT_ROBOCLAW_ADDRESS  128
-#define RIGHT_ROBOCLAW_ADDRESS 129
+#define RIGHT_ROBOCLAW_ADDRESS 128
 
 #define MOTOR_CURRENT_LIMIT_AMPS 30
 
@@ -46,7 +46,6 @@ void left_serial_message_received_callback(const magellan_messages::MsgSerialPor
 {
     if (input_data->data.size() > 0)
     {
-        left_response.clear();
         left_response.reserve(input_data->data.size());
         std::copy(input_data->data.begin(), input_data->data.end(), std::back_inserter(left_response));
         left_response_valid = true;
@@ -57,7 +56,6 @@ void right_serial_message_received_callback(const magellan_messages::MsgSerialPo
 {
     if (input_data->data.size() > 0)
     {
-        right_response.clear();
         right_response.reserve(input_data->data.size());
         std::copy(input_data->data.begin(), input_data->data.end(), std::back_inserter(right_response));
         right_response_valid = true;
@@ -77,13 +75,14 @@ void sigint_handler(int signal)
 
 void drive(double left_throttle, double right_throttle)
 {
-    uint8_t motor_fl_command_id = (left_throttle > 0 ? CMD_M1_FORWARD : CMD_M1_BACKWARD);
+    // the signs of the directions are determined experimentally.
+    uint8_t motor_fl_command_id = (left_throttle < 0 ? CMD_M1_FORWARD : CMD_M1_BACKWARD);
     uint8_t motor_fl_value = std::abs(left_throttle) / 100.0 * 127.0;
     uint8_t motor_fr_command_id = (right_throttle > 0 ? CMD_M1_FORWARD : CMD_M1_BACKWARD);
     uint8_t motor_fr_value = std::abs(right_throttle) / 100.0 * 127.0;
     uint8_t motor_bl_command_id = (left_throttle > 0 ? CMD_M2_FORWARD : CMD_M2_BACKWARD);
     uint8_t motor_bl_value = std::abs(left_throttle) / 100.0 * 127.0;
-    uint8_t motor_br_command_id = (right_throttle > 0 ? CMD_M2_FORWARD : CMD_M2_BACKWARD);
+    uint8_t motor_br_command_id = (right_throttle < 0 ? CMD_M2_FORWARD : CMD_M2_BACKWARD);
     uint8_t motor_br_value = std::abs(right_throttle) * 100.0 / 127.0;
 
     size_t num_retries = 3;
@@ -110,6 +109,7 @@ bool drive_motor(uint8_t address, uint8_t command_id, uint8_t value, size_t retr
 {
     for (size_t i = 0; i < retries; i++)
     {
+        received_data.clear();
         send_command(address, command_id, &value, 1, verify_flag, publisher);
 
         if (verify_motor_speed_command_received(verify_flag, received_data, 1000))
@@ -133,6 +133,7 @@ bool verify_motor_speed_command_received(bool &verify_flag, std::vector<uint8_t>
         }
 
         usleep(10);
+        ros::spinOnce();
     }
     return false;
 }
@@ -155,6 +156,7 @@ void send_command(uint8_t address, uint8_t command_id, uint8_t *data, size_t dat
     cmd_line.header.stamp = ros::Time::now();
     verify_flag = false;
     publisher.publish(cmd_line);
+    ros::spinOnce();
 }
 
 void append_crc(std::vector<uint8_t> &data)
@@ -186,28 +188,34 @@ void set_motor_current_limit(uint8_t motor_address, uint8_t write_command_id, ui
 {
     magellan_messages::MsgSerialPortLine command;
     command.data.reserve(12);
-    size_t max_retry_count = 3;
+    size_t max_retry_count = 30;
     
     bool set_successful = false;
     for (size_t retry_count = 0; retry_count < max_retry_count; retry_count++)
     {
-        uint32_t write_data = max_amps * 100; // max current is specified in 10mA units. 
+        if (retry_count % 10 == 0)
+        {
+            uint32_t write_data = max_amps * 100; // max current is specified in 10mA units. 
 
-        command.data.push_back(motor_address);
-        command.data.push_back(write_command_id);
-        command.data.push_back(static_cast<uint8_t>(write_data >> 24));
-        command.data.push_back(static_cast<uint8_t>((write_data & 0x00FFFFFF) >> 16));
-        command.data.push_back(static_cast<uint8_t>((write_data & 0x0000FFFF) >> 8));
-        command.data.push_back(static_cast<uint8_t>((write_data & 0x000000FF)));
-        command.data.push_back(0);
-        command.data.push_back(0);
-        command.data.push_back(0);
-        command.data.push_back(0);
+            command.data.push_back(motor_address);
+            command.data.push_back(write_command_id);
+            command.data.push_back(static_cast<uint8_t>(write_data >> 24));
+            command.data.push_back(static_cast<uint8_t>((write_data & 0x00FFFFFF) >> 16));
+            command.data.push_back(static_cast<uint8_t>((write_data & 0x0000FFFF) >> 8));
+            command.data.push_back(static_cast<uint8_t>((write_data & 0x000000FF)));
+            command.data.push_back(0);
+            command.data.push_back(0);
+            command.data.push_back(0);
+            command.data.push_back(0);
 
-        append_crc(command.data);
+            append_crc(command.data);
 
-        verify_flag = false;
-        publisher.publish(command);
+            verify_flag = false;
+            received_data.clear();
+            publisher.publish(command);
+            ros::spinOnce();
+        }
+        
 
         if (verify_motor_speed_command_received(verify_flag, received_data, 1000))
         {
@@ -220,28 +228,34 @@ void set_motor_current_limit(uint8_t motor_address, uint8_t write_command_id, ui
     {
         for (size_t retry_count = 0; retry_count < max_retry_count; retry_count++)
         {
-            command.data.clear();
-            command.data.push_back(motor_address);
-            command.data.push_back(read_command_id);
+            if (retry_count % 10 == 0)
+            {
+                command.data.clear();
+                command.data.push_back(motor_address);
+                command.data.push_back(read_command_id);
 
-            append_crc(command.data);
-            verify_flag = false;
-            publisher.publish(command);
+                append_crc(command.data);
+                verify_flag = false;
+                received_data.clear();
+                publisher.publish(command);
+                ros::spinOnce();
+            }
+            
 
-            for (size_t i = 0; i < 10; i++)
+            for (size_t i = 0; i < 3; i++)
             {
                 if (verify_flag)
                 {
-                    if (received_data.size() < 4)
+                    if (received_data.size() != 10)
                     {
-                        break;
+                        continue;
                     }
 
                     uint32_t read_current_value = 0;
                     for (int j = 0; j < 4; j++)
                     {
-                        read_current_value |= received_data[i];
                         read_current_value = read_current_value << 8;
+                        read_current_value |= received_data[j];
                     }
 
                     if (read_current_value == max_amps * 100)
@@ -250,7 +264,8 @@ void set_motor_current_limit(uint8_t motor_address, uint8_t write_command_id, ui
                     }
                 }
 
-                usleep(1000);
+                usleep(1000 * 1000);
+                ros::spinOnce();
             }
         }
     }
@@ -277,6 +292,11 @@ int main(int argc, char** argv)
 
     ros::Subscriber left_serial_subscriber = nh.subscribe<magellan_messages::MsgSerialPortLine>("input_left_serial_topic", 1000, left_serial_message_received_callback);
     ros::Subscriber right_serial_subscriber = nh.subscribe<magellan_messages::MsgSerialPortLine>("input_right_serial_topic", 1000, right_serial_message_received_callback);
+
+    // TODO: It appears as if the publishers won't start working unless we sleep for a few seconds.
+    // I don't know how long this has to be, but 5 seconds seems to always work.
+    // The alternative is that the entire system dies.
+    usleep(5000 * 1000);
 
     signal(SIGINT, sigint_handler);
     initialize_motor_controllers();

@@ -1,5 +1,5 @@
 <launch>
-    <node name="xtion_reader" pkg="xtion_reader" type="node" args="-i 1d27/0601@3/16 -f 30 -q 1000">
+    <node name="xtion_reader" pkg="xtion_reader" type="node" args="-i 1d27/0601@1/11 -f 30 -q 1000">
         <remap from="rgb_output_topic" to="/xtion_reader/rgb_output_topic" />
         <remap from="depth_output_topic" to="/xtion_reader/depth_output_topic" />
     </node>
