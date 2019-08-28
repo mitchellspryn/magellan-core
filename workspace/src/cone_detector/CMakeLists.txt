@@ -21,7 +21,7 @@ catkin_package(
     CATKIN_DEPENDS rospy image_transport cv_bridge message_runtime sensor_msgs magellan_messages
 )
 
-install(PROGRAMS 
+catkin_install_python(PROGRAMS 
   scripts/ros_node.py
   scripts/detector_utils.py
   scripts/detector.py

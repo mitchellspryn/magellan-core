@@ -16,6 +16,8 @@ add_message_files(
     magellan_serial_port/MsgSerialPortLine.msg
     magellan_imu/MsgMagellanImu.msg
     magellan_drive/MsgMagellanDrive.msg
+    visual_odometry/MsgVisualOdometryDebug.msg
+    visual_odometry/MsgVisualOdometry.msg
 )
 
 generate_messages(
