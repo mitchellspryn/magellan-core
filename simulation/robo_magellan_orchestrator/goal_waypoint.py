@@ -67,6 +67,16 @@ class GoalWaypoint(spawnable_object.SpawnableObject):
             client.simDeleteObject(self.random_name)
             self.reset()
 
+    def to_db_tuple(self):
+        return (self.cone_type,
+                (
+                    self.spawn_pose.position.x,
+                    self.spawn_pose.position.y,
+                    self.spawn_pose.position.z
+                ),
+                self.position_tolerance,
+                self.velocity_tolerance)
+
     def __l2_sq(self, a, b):
         return ((a.x_val-b.x_val)*(a.x_val-b.x_val)) + ((a.y_val-b.y_val)*(a.y_val-b.y_val)) + ((a.z_val-b.z_val)*(a.z_val-b.z_val))
 

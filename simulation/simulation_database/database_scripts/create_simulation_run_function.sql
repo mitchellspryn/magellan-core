@@ -1,7 +1,9 @@
 CREATE FUNCTION create_simulation_run(
     start_time TIMESTAMPTZ,
-    config JSONB,
+    server_config JSONB,
+    client_config JSONB,
     concrete_config JSONB,
+    simulation_id TEXT,
     client_id TEXT,
     bonus_cones bonus_cone_insert_type[],
     spawn_pose spawn_pose_insert_type,
@@ -24,8 +26,10 @@ BEGIN
             start_time,
             end_time,
             status,
-            config,
+            server_config,
+            client_config,
             concrete_config,
+            simulation_id,
             client_id,
             error
         )
@@ -35,8 +39,10 @@ BEGIN
             start_time,
             NULL,
             inserted_simulation_run_id,
-            config,
+            server_config,
+            client_config,
             concrete_config,
+            simulation_id,
             client_id, 
             NULL
         ) RETURNING id
@@ -48,35 +54,27 @@ BEGIN
     (
         id,
         run_id,
-        start_x,
-        start_y,
-        start_z,
-        start_roll,
-        start_pitch,
-        start_yaw
+        location,
+        orientation
     )
     VALUES
     (
         DEFAULT,
         inserted_simulation_run_id,
-        (spawn_pose).start_x,
-        (spawn_pose).start_y,
-        (spawn_pose).start_z,
-        (spawn_pose).start_roll,
-        (spawn_pose).start_pitch,
-        (spawn_pose).start_yaw
+        (spawn_pose).location,
+        (spawn_pose).orientation
     );
     
     INSERT INTO goal_pose 
     (
         id,
         run_id,
-        visited_time,
+        goal_reached,
         bot_closest_distance,
         cone_type,
-        goal_x,
-        goal_y,
-        goal_z
+        location,
+        position_tolerance,
+        velocity_tolerance
     )
     VALUES
     (
@@ -85,9 +83,9 @@ BEGIN
         FALSE,
         'infinity'::real,
         (goal_pose).cone_type,
-        (goal_pose).goal_x,
-        (goal_pose).goal_y,
-        (goal_pose).goal_z
+        (goal_pose).location,
+        (goal_pose).position_tolerance,
+        (goal_pose).velocity_tolerance
     );
     
     WITH packed AS
@@ -101,22 +99,20 @@ BEGIN
     )
     INSERT INTO bonus_cone
     (
+        cone_id,
         run_id,
         bonus_multiplier,
         visited_time,
         cone_type,
-        cone_spawn_x,
-        cone_spawn_y,
-        cone_spawn_z
+        location
     )
     SELECT  --DEFAULT,
             inserted_simulation_run_id,
+            cone_id,
             (cones).bonus_multiplier,
             NULL,
             (cones).cone_type,
-            (cones).cone_spawn_x,
-            (cones).cone_spawn_y,
-            (cones).cone_spawn_z
+            (cones).location
     FROM unnested;
     
     RETURN QUERY

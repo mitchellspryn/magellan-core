@@ -7,14 +7,18 @@ import pytz
 
 class SimulationDatabaseManager(object):
     """description of class"""
-    def __init__(self):
+    def __init__(self, db_user, db_password, db_host, db_port, db_database):
         self.connection_pool = psycopg2.pool.SimpleConnectionPool(1, 
                                                                   20, 
-                                                                  user = 'postgres',
-                                                                  password = 'abcd',
-                                                                  host = '127.0.0.1',
-                                                                  port = '5432', 
-                                                                  database = 'simulation')
+                                                                  user = db_user,
+                                                                  password = db_password,
+                                                                  host = db_host,
+                                                                  port = db_port, 
+                                                                  database = db_database)
+
+        if not self.connection_pool:
+            raise ValueError('Unable to initialize connection pool to database {0} at {1}:{2} using user {3}, password {4}'
+                             .format(db_database, db_host, db_posrt, db_user, db_password))
 
     def __del__(self):
         if self.connection_pool is not None:
@@ -23,8 +27,10 @@ class SimulationDatabaseManager(object):
 
     def create_simulation_run_function(self, 
                                         run_start_time,
-                                        run_config,
+                                        server_config,
+                                        client_config,
                                         concrete_run_config,
+                                        simulation_id,
                                         client_id,
                                         bonus_cones,
                                         spawn_pose,
@@ -32,9 +38,11 @@ class SimulationDatabaseManager(object):
         
         parameters = {}
         parameters['start_time'] = run_start_time
-        parameters['config'] = json.dumps(run_config)
+        parameters['server_config'] = json.dumps(server_config)
+        parameters['client_config'] = json.dumps(client_config)
         parameters['concrete_config'] = json.dumps(concrete_run_config)
         parameters['client_id'] = client_id
+        parameters['simulation_id'] = simulation_id
         parameters['bonus_cones'] = [bc.to_db_tuple() for bc in bonus_cones]
         parameters['spawn_pose'] = spawn_pose.to_db_tuple()
         parameters['goal_pose'] = goal_pose.to_db_tuple()
@@ -42,9 +50,11 @@ class SimulationDatabaseManager(object):
         query = """
             SELECT create_simulation_run(
                 %(start_time)s::TIMESTAMPTZ, 
-                %(config)s::JSONB,
+                %(server_config)s::JSONB,
+                %(client_config)s::JSONB,
                 %(concrete_config)s::JSONB,
                 %(client_id)s::TEXT,
+                %(simulation_id)s::TEXT,
                 %(bonus_cones)s::bonus_cone_insert_type[],
                 %(spawn_pose)s::spawn_pose_insert_type,
                 %(goal_pose)s::goal_pose_insert_type);
@@ -55,30 +65,10 @@ class SimulationDatabaseManager(object):
         
         return run_id
 
-    def get_bonus_cones_for_run(self, run_id):
+    def mark_bonus_cone_visited(self, cone, run_id):
         parameters = {}
-        parameters['run_id'] = run_id
-
-        query = """
-            SELECT cone_spawn_x,
-                   cone_spawn_y,
-                   cone_spawn_z,
-                   cone_id
-            FROM bonus_cone
-            WHERE run_id = %s(run_id);
-        """
-
-        results = self.__execute(query, parameters)
-        
-        mapping = {}
-        for result in results:
-            key = (result[0], result[1], result[2])
-            mapping[key] = result[3]
-
-    def mark_bonus_cone_visited(self, cone):
-        parameters = {}
-        
-        parameters['cone_id'] = cone.id
+        parameters['run_id'] = run_id 
+        parameters['cone_id'] = cone.cone_id
         parameters['visited_time'] = cone.visited_time_stamp
 
         query = """
@@ -94,11 +84,13 @@ class SimulationDatabaseManager(object):
                                run_id,
                                run_end_time,
                                error,
+                               error_stack_trace
                                goal_pose):
         parameters = {}
         parameters['run_id'] = run_id
         parameters['run_end_time'] = run_end_time
         parameters['error'] = error
+        parameters['error_stack_trace'] = error_stack_trace
         parameters['bot_closest_distance'] = goal_pose.closest_distance
         parameters['goal_reached'] = goal_pose.visited
 
@@ -107,12 +99,45 @@ class SimulationDatabaseManager(object):
                 %(run_id)s::BIGINT,
                 %(run_end_time)s::TIMESTAMPTZ,
                 %(error)s::TEXT,
+                %(error_stack_trace)s::TEXT,
                 %(bot_closest_distance)s::REAL,
                 %(goal_reached)s::BOOLEAN
             );
         """
 
         self.__execute(query, parameters, nonquery=True)
+
+    def insert_bot_pose(self, 
+                        run_id,
+                        timestamp,
+                        position,
+                        orientation):
+        parameters = {}
+        parameters['run_id'] = run_id
+        parameters['timestamp'] = timestamp
+        parameters['location'] = (position.x_val, position.y_val, position.z_val)
+        parameters['orientation'] = (orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val)
+
+        query = """
+            INSERT INTO bot_pose
+            (
+                run_id,
+                timstamp,
+                location,
+                orientation
+            )
+            VALUES
+            (
+                DEFAULT,
+                %(run_id)s::BIGINT,
+                %(timestamp)s::TIMESTAMPTZ,
+                %(location)s::Vector3r,
+                %(orientation)s::Quaternionr
+            );
+        """
+
+        self.__execute(query, parameters, nonquery=True)
+
 
     def __execute(self, query, parameters, nonquery = False):
         try:

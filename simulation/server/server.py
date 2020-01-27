@@ -1,4 +1,5 @@
 import json
+import threading
 
 import simulation_run
 import simulation_instance_manager
@@ -10,6 +11,10 @@ app = flask.Flask(__name__)
 def status_page():
     return 'Hello, world!'
 
+@app.route('/control', methods=['POST'])
+def set_control_signals():
+    pass
+
 @app.route('/runs', methods=['POST'])
 def new_run():
     pass
@@ -18,15 +23,12 @@ def new_run():
 def status():
     pass
 
-@app.route('/control', methods=['POST'])
-def set_control_signals():
-    pass
-
 @app.route('/runs', methods=['DELETE'])
 def cancel_run():
     pass
 
 sim_instance_manager = None
+current_simulation_run = None
 
 if __name__ == '__main__':
     try:

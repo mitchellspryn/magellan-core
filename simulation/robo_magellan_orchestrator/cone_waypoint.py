@@ -4,7 +4,7 @@ import robo_magellan_orchestrator.spawnable_object as spawnable_object
 import uuid
 
 class ConeWaypoint(spawnable_object.SpawnableObject):
-    def __init__(self, init_parameters):
+    def __init__(self, init_parameters, cone_id):
         super(ConeWaypoint, self).__init__(init_parameters)
         self.bonus_multiplier = init_parameters['bonusMultiplier']
         self.cone_type = init_parameters['coneType'].lower().strip()
@@ -18,6 +18,7 @@ class ConeWaypoint(spawnable_object.SpawnableObject):
 
         self.visited = False
         self.random_name = str(uuid.uuid4())
+        self.cone_id = cone_id
         self.visited_time_stamp = None
 
     def reset(self):
@@ -36,5 +37,16 @@ class ConeWaypoint(spawnable_object.SpawnableObject):
     def set_visited(self, time_stamp):
         self.visited = True
         self.visited_time_stamp = time_stamp
+
+    def to_db_tuple(self):
+        return (
+                self.cone_id,
+                self.bonus_multiplier, 
+                self.cone_type, 
+                (
+                    self.spawn_pose.position.x_val,
+                    self.spawn_pose.position.y_val,
+                    self.spawn_pose.position.z_val
+                ))
 
 

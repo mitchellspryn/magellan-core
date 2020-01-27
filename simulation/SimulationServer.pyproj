@@ -23,7 +23,9 @@
   <ItemGroup>
     <Folder Include="airsim\" />
     <Folder Include="annotations_common\" />
+    <Folder Include="simulation_database\" />
     <Folder Include="server\" />
+    <Folder Include="simulation_database\database_scripts\" />
     <Folder Include="three_bridges_annotations\" />
     <Folder Include="robo_magellan_orchestrator\" />
     <Folder Include="rm_bot_client\" />
@@ -42,6 +44,21 @@
     <Compile Include="annotations_common\localized_point.py" />
     <Compile Include="annotations_common\map_annotation.py" />
     <Compile Include="annotations_common\maze_occupancy_matrix.py" />
+    <Compile Include="annotations_common\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="rm_bot_client\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="server\server_config.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="simulation_database\simulation_database_manager.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="simulation_database\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="rm_bot_client\rm_bot_client.py" />
     <Compile Include="robo_magellan_orchestrator\cone_waypoint.py" />
     <Compile Include="robo_magellan_orchestrator\goal_waypoint.py" />
@@ -55,10 +72,23 @@
     <Compile Include="server\simulation_run.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="server\simulation_run_collection.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="server\simulator_instance_manager.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="three_bridges_annotations\test_three_bridges_annotations.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="simulation_database\database_scripts\complete_simulation_run_function.sql" />
+    <Content Include="simulation_database\database_scripts\compute_run_score_function.sql" />
+    <Content Include="simulation_database\database_scripts\create_simulation_run_function.sql" />
+    <Content Include="simulation_database\database_scripts\delete_simulation_run_function.sql" />
+    <Content Include="simulation_database\database_scripts\initialize_database.ps1" />
+    <Content Include="simulation_database\database_scripts\mark_bonus_cone_visited.sql" />
+    <Content Include="simulation_database\database_scripts\table_and_type_definitions.sql" />
+    <Content Include="simulation_database\database_scripts\vector_math_functions.sql" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

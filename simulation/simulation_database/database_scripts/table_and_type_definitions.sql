@@ -1,12 +1,28 @@
+CREATE TYPE Vector3r AS (
+    x REAL,
+    y REAL,
+    z REAL
+);
+
+CREATE TYPE Quaternionr AS (
+    w REAL,
+    x REAL,
+    y REAL,
+    z REAL
+);
+
 CREATE TABLE simulation_run (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     start_time TIMESTAMPTZ NOT NULL, 
     end_time TIMESTAMPTZ NULL,
     status INT NOT NULL,
-    config JSONB NOT NULL,
+    server_config JSONB NOT NULL,
+    client_config JSONB NOT NULL,
     concrete_config JSONB NOT NULL,
+    simulation_id TEXT NOT NULL,
     client_id TEXT NULL,
-    error TEXT NULL
+    error TEXT NULL,
+    error_stack_trace NULL
 );
 
 CREATE TYPE simulation_run_insert_type AS (
@@ -16,50 +32,42 @@ CREATE TYPE simulation_run_insert_type AS (
     config JSONB,
     concrete_config JSONB,
     client_id TEXT,
-    error TEXT
+    error TEXT,
+    error_stack_trace TEXT
 );
 
 CREATE TABLE bonus_cone (
-    cone_id BIGSERIAL PRIMARY KEY NOT NULL,
+    id BIGSERIAL PRIMARY KEY NOT NULL,
     run_id BIGINT NOT NULL,
+    cone_id INT NOT NULL,
     bonus_multiplier REAL NOT NULL,
     visited_time TIMESTAMPTZ NULL,
     cone_type TEXT NOT NULL,
-    cone_spawn_x REAL NOT NULL,
-    cone_spawn_y REAL NOT NULL,
-    cone_spawn_z REAL NOT NULL
+    location Vector3r NOT NULL
 );
 
 CREATE INDEX idx_bonus_cone_run_id ON bonus_cone(run_id);
+CREATE INDEX idx_bonus_cone_cone_id_run_id ON bonus_cone(cone_id, run_id);
 
 CREATE TYPE bonus_cone_insert_type AS (
+    cone_id,
     bonus_multiplier REAL,
     cone_type TEXT,
-    cone_spawn_x REAL,
-    cone_spawn_y REAL,
-    cone_spawn_z REAL
+    location Vector3r
 );
 
 CREATE TABLE spawn_pose (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     run_id BIGINT NOT NULL,
-    start_x REAL NOT NULL,
-    start_y REAL NOT NULL,
-    start_z REAL NOT NULL,
-    start_roll REAL NOT NULL,
-    start_pitch REAL NOT NULL,
-    start_yaw REAL NOT NULL
+    location Vector3r NOT NULL,
+    orientation Quaternionr NOT NULL
 );
 
 CREATE INDEX idx_spawn_pose_run_id ON spawn_pose(run_id);
 
 CREATE TYPE spawn_pose_insert_type AS (
-    start_x REAL,
-    start_y REAL,
-    start_z REAL,
-    start_roll REAL,
-    start_pitch REAL,
-    start_yaw REAL
+    location Vector3r,
+    orientation Quaternionr
 );
 
 CREATE TABLE goal_pose (
@@ -68,18 +76,18 @@ CREATE TABLE goal_pose (
     goal_reached BOOLEAN NOT NULL,
     bot_closest_distance REAL NULL,
     cone_type TEXT NULL,
-    goal_x REAL NOT NULL,
-    goal_y REAL NOT NULL,
-    goal_z REAL NOT NULL
+    location Vector3r NOT NULL,
+    position_tolerance REAL NOT NULL,
+    velocity_tolerance REAL NOT NULL
 );
 
 CREATE INDEX idx_goal_pose_run_id ON goal_pose(run_id);
 
 CREATE TYPE goal_pose_insert_type AS (
     cone_type TEXT,
-    goal_x REAL,
-    goal_y REAL,
-    goal_z REAL
+    location Vector3r,
+    position_tolerance REAL,
+    velocity_tolerance REAL
 );
 
 CREATE TABLE status (
@@ -89,7 +97,17 @@ CREATE TABLE status (
 
 CREATE INDEX idx_status_id ON status(id);
 
-ALTER TABLE bonus_cone CLUSTER ON idx_bonus_cone_run_id;
+CREATE TABLE bot_pose (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    run_id BIGINT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    location Vector3r NOT NULL,
+    orientation Quaternionr NOT NULL
+);
+
+CREATE INDEX idx_bot_pose_run_id ON bot_pose(run_id);
+
+ALTER TABLE bonus_cone CLUSTER ON idx_bonus_cone_cone_id_run_id;
 ALTER TABLE spawn_pose CLUSTER ON idx_spawn_pose_run_id;
 ALTER TABLE goal_pose CLUSTER ON idx_goal_pose_run_id;
 ALTER TABLE status CLUSTER ON idx_status_id;

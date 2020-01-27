@@ -1,0 +1,10 @@
+{
+    "db_database": "simulation",
+    "db_host": "127.0.0.1",
+    "db_password": "",
+    "db_port": 5432,
+    "db_user": "postgres",
+    "simulator_path": "F:/RoboMagellan/SpringLandscapeBuilt/WindowsNoEditor/RMSpringLandscape.exe",
+    "simulator_log_path": "F:/simulator_logs/",
+    "simulator_save_log_on_success": false
+}

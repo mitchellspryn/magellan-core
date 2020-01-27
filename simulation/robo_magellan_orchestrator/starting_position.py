@@ -18,3 +18,17 @@ class StartingPosition(spawnable_object.SpawnableObject):
         self.spawn_pose = at.Pose(position_val=new_pose_vec, orientation_val=self.spawn_pose.orientation)
 
         client.simSetVehiclePose(self.spawn_pose, True)
+
+    def to_db_tuple(self):
+        return (
+                (
+                    self.spawn_pose.position.x_val,
+                    self.spawn_pose.position.y_val,
+                    self.spawn_pose.position.z_val
+                ),
+                (
+                    self.spawn_pose.orientation.w_val,
+                    self.spawn_pose.orientation.x_val,
+                    self.spawn_pose.orientation.y_val,
+                    self.spawn_pose.orientation.z_val
+                ))

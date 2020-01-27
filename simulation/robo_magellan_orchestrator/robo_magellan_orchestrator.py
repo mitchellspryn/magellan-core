@@ -16,11 +16,7 @@ import robo_magellan_orchestrator.goal_waypoint as goal_waypoint
 import robo_magellan_orchestrator.raycast_utils as raycast_utils
 
 class RoboMagellanCompetitionOrchestrator(object):
-    def __init__(self, config_file_path):
-        with open(config_file_path, 'r') as f:
-            config_text = f.read()
-        config_values = json.loads(config_text)
-
+    def __init__(self, config_values):
         if ('arenaBounds' not in config_values):
             raise ValueError('"arenaBounds" not specified.')
         self.arena_bounds = self.__parse_arena_bounds(config_values['arenaBounds'])
@@ -63,14 +59,6 @@ class RoboMagellanCompetitionOrchestrator(object):
         self.last_collision_time_stamp = None
         self.run_end_reason = None
 
-    def set_debug_draw_enabled(self, draw_debug):
-        self.debug_draw = draw_debug
-
-    def set_random_seed(self, random_seed):
-        random.seed(random_seed)
-        np.random.seed(random_seed)
-
-    def start_new_run(self, client):
         self.goal_point.reset()
         self.goal_point.spawn(client)
         
@@ -87,6 +75,14 @@ class RoboMagellanCompetitionOrchestrator(object):
 
         client.simSetDrawableShapes(debug_draw_request)
 
+    def set_debug_draw_enabled(self, draw_debug):
+        self.debug_draw = draw_debug
+
+    def set_random_seed(self, random_seed):
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+
+    def start_new_run(self, client):
         self.start_time = datetime.datetime.utcnow()
         self.end_time = None
         self.max_end_time = self.start_time + self.time_limit
@@ -245,8 +241,9 @@ class RoboMagellanCompetitionOrchestrator(object):
 
     def __parse_cones(self, cones_config):
         cones = []
-        for cone_config in cones_config:
-            cones.append(cone_waypoint.ConeWaypoint(cone_config))
+        for i in range(0, len(cones_config), 1):
+            cone_config = cones_config[i]
+            cones.append(cone_waypoint.ConeWaypoint(cone_config, i))
 
         return cones
 

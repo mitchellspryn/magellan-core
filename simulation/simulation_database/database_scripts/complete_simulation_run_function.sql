@@ -2,6 +2,7 @@ CREATE FUNCTION complete_simulated_run(
     run_id BIGINT,
     run_end_time TIMESTAMPTZ,
     error TEXT,
+    error_stack_trace TEXT,
     bot_closest_distance REAL,
     goal_reached BOOLEAN
 ) RETURNS TABLE (updated_id BIGINT) AS $$
@@ -9,7 +10,8 @@ BEGIN
 
     UPDATE simulation_run AS s
     SET s.end_time = end_time,
-        s.error = error
+        s.error = error,
+        s.error_stack_trace = error_stack_trace
     WHERE s.id = run_id;
     
     UPDATE goal_pose as g
