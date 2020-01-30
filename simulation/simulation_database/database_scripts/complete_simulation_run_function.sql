@@ -21,7 +21,8 @@ BEGIN
     UPDATE simulation_run
     SET end_time = _run_end_time,
         error = _error,
-        error_stack_trace = _error_stack_trace
+        error_stack_trace = _error_stack_trace,
+        status = _status_id
     WHERE id = _run_id;
     
     UPDATE goal_pose

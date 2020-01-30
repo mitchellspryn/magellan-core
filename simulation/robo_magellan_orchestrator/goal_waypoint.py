@@ -44,6 +44,11 @@ class GoalWaypoint(spawnable_object.SpawnableObject):
             client.simSpawnStaticMeshObject(self.mesh_name, self.random_name, self.spawn_pose)
             client.simSetSegmentationObjectID(self.random_name, 235)
 
+    def delete(self, client):
+        if self.cone_type is not None:
+            client.simDeleteObject(self.random_name)
+            self.reset()
+
     def is_bot_at_goal(self, client):
         if (self.goal_center == None):
             return False

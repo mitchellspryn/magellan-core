@@ -5,7 +5,6 @@ import requests
 import json
 import io
 import tzlocal
-import pause
 import datetime
 import queue
 import traceback
@@ -20,11 +19,22 @@ import simulation_database.simulation_database_manager as simulation_database_ma
 import simulator_instance_manager
 
 class SimulationRun(object):
+    class LockedSection(object):
+        def __init__(self, parent):
+            self.parent = parent
+
+        def __enter__(self):
+            self.parent.client_lock.acquire(blocking=True)
+
+        def __exit__(self, type, value, traceback):
+            self.parent.client_lock.release()
+
     def __init__(self, client_config, simulation_instance_manager, database_client, server_config):
         self.is_running = True
         self.is_complete = False
         self.last_status = None
         self.server_config = server_config
+        self.client_lock = threading.Lock()
 
         self.random_seed = 42
         if 'random_seed' in client_config:
@@ -86,12 +96,16 @@ class SimulationRun(object):
 
         self.monitor_thread.start()
 
+        # TODO: hack to ensure that orchestrator starts.
+        time.sleep(0.5)
+
         for callback in self.background_threads:
             callback.start()
 
     def set_control_signals(self, left_throttle, right_throttle):
         if (self.is_running):
-            self.client.drive(left_throttle, right_throttle)
+            with SimulationRun.LockedSection(self) as l:
+                self.client.drive(left_throttle, right_throttle)
 
     def cancel(self):
         self.exception_queue.put(('The operation was cancelled by the user.', None))
@@ -102,8 +116,12 @@ class SimulationRun(object):
     def __main_monitor_thread(self):
         try:
             now = datetime.datetime.now(tz=self.timezone)
-            self.orchestrator.start_new_run(self.client)
-            self.last_status = self.orchestrator.get_run_summary(self.client)
+
+            with SimulationRun.LockedSection(self) as l:
+                self.orchestrator.start_new_run(self.client)
+
+            self.last_status = self.orchestrator.get_run_summary()
+
             visited_cone_ids = set()
             while(not self.last_status['runComplete']):
                 if not self.exception_queue.empty():
@@ -120,8 +138,10 @@ class SimulationRun(object):
                 if (not self.simulation_instance_manager.is_simulation_alive()):
                     raise RuntimeError('The simulator crashed. Check {0} for logs'.format(self.simulation_instance_manager.get_log_path()))
 
-                self.orchestrator.run_tick(self.client)
-                self.last_status = self.orchestrator.get_run_summary(self.client)
+                with SimulationRun.LockedSection(self) as l:
+                    self.orchestrator.run_tick(self.client)
+
+                self.last_status = self.orchestrator.get_run_summary()
         except Exception as e:
             self.error = str(e)
             self.error_stack_trace = traceback.format_exc()
@@ -135,9 +155,14 @@ class SimulationRun(object):
 
         # Attempt to stop the car.
         # It's no big deal if it doesn't stop.
+        visited = self.orchestrator.goal_point.visited
+        closest_distance = self.orchestrator.goal_point.closest_distance
+
         try:
-            self.client.drive(0, 0)
-        except:
+            with SimulationRun.LockedSection(self) as l:
+                self.client.drive(0, 0)
+                self.orchestrator.clean_up_run(self.client)
+        except Exception as e:
             pass
 
         self.end_time = datetime.datetime.now(tz=self.timezone)
@@ -145,7 +170,8 @@ class SimulationRun(object):
                                                     self.end_time,
                                                     self.error,
                                                     self.error_stack_trace,
-                                                    self.orchestrator.goal_point)
+                                                    closest_distance,
+                                                    visited)
 
         for background_thread in self.background_threads:
             background_thread.join()
@@ -166,7 +192,9 @@ class SimulationRun(object):
             now = datetime.datetime.now(tz=self.timezone)
             while(self.is_running):
                 next_now = now + datetime.timedelta(seconds = 1.0 / 2.0) # 2 hz
-                response = self.client.simGetVehiclePose()
+                
+                with SimulationRun.LockedSection(self) as l:
+                    response = self.client.simGetVehiclePose()
 
                 self.database_client.insert_bot_pose(self.run_id,
                                                      now,
@@ -174,7 +202,7 @@ class SimulationRun(object):
                                                      response.orientation)
 
                 now = next_now
-                pause.until(now)
+                self.__pause_until(now)
         except Exception as e:
             self.exception_queue.put((str(e), traceback.format_exc()))
             raise
@@ -186,9 +214,10 @@ class SimulationRun(object):
             while (self.is_running):
                 now += datetime.timedelta(seconds = 1.0 / 30.0) # 30 FPS
 
-                response = self.client.simGetImages([
-                    at.ImageRequest('Xtion', at.ImageType.Scene, pixels_as_float=False, compress=False),
-                    at.ImageRequest('Xtion', at.ImageType.DepthPlanner, pixels_as_float=True, compress=False)]) # Misspelled "Planar"
+                with SimulationRun.LockedSection(self) as l:
+                    response = self.client.simGetImages([
+                        at.ImageRequest('Xtion', at.ImageType.Scene, pixels_as_float=False, compress=False),
+                        at.ImageRequest('Xtion', at.ImageType.DepthPlanner, pixels_as_float=True, compress=False)]) # Misspelled "Planar"
 
                 if (local_data is None):
                     local_data = np.zeros((response[0].shape[0], response[0].shape[1], 4), dtype=np.float32)
@@ -202,7 +231,7 @@ class SimulationRun(object):
 
                 response = requests.post(self.depth_image_callback_url, json=post_data)
 
-                pause.until(now)
+                self.__pause_until(now)
         except Exception as e:
             self.exception_queue.put((str(e), traceback.format_exc()))
             raise
@@ -213,14 +242,15 @@ class SimulationRun(object):
             while (self.is_running):
                 now += datetime.timedelta(seconds= 1.0 / 5.0) # 5 Hz
 
-                response = self.client.getLidarData('Lidar')
+                with SimulationRun.LockedSection(self) as l:
+                    response = self.client.getLidarData('Lidar')
 
                 post_data = {}
                 post_data['shape'] = (response.point_cloud.shape / 3, 3)
 
                 response = requests.post(self.lidar_callback_url, json=post_data)
 
-                pause.until(now)
+                self.__pause_until(now)
         except Exception as e:
             self.exception_queue.put((str(e), traceback.format_exc()))
             raise
@@ -232,8 +262,9 @@ class SimulationRun(object):
             while (self.is_running):
                 now += datetime.timedelta(seconds = 1.0 / 30.0) # 30 FPS
 
-                response = self.client.simGetImages([
-                    at.ImageRequest('Ground', at.ImageType.Scene, pixels_as_float=False, compress=False)])
+                with SimulationRun.LockedSection(self) as l:
+                    response = self.client.simGetImages([
+                        at.ImageRequest('Ground', at.ImageType.Scene, pixels_as_float=False, compress=False)])
 
                 post_data = {}
                 post_data['shape'] = response[0].shape
@@ -241,7 +272,7 @@ class SimulationRun(object):
 
                 response = requests.post(self.ground_camera_callback_url, json=post_data)
 
-                pause.until(now)
+                self.__pause_until(now)
         except Exception as e:
             self.exception_queue.put((str(e), traceback.format_exc()))
             raise
@@ -253,7 +284,8 @@ class SimulationRun(object):
             while(self.is_running):
                 now += datetime.timedelta(seconds = 1.0 / 20.0) # 20 hz
 
-                response = self.client.readSensors()
+                with SimulationRun.LockedSection(self) as l:
+                    response = self.client.readSensors()
 
                 post_data = {}
                 post_data['imu_x'] = response['readings']['BodyImu']['IMU-Lin-x']
@@ -273,10 +305,19 @@ class SimulationRun(object):
 
                 response = requests.post(self.imu_gps_callback_url, json=post_data)
 
-                pause.until(now)
+                self.__pause_until(now)
         except Exception as e:
             self.exception_queue.put((str(e), traceback.format_exc()))
             raise
 
+    # Copied from pause package. 
+    # Cannot use package directly because their timezone is not tz aware.
+    def __pause_until(self, end):
+        while True:
+            now = datetime.datetime.now(tz=self.timezone)
+            diff = (end - now).total_seconds()
 
-
+            if diff <= 0.001: # Allow a bit of buffer to avoid spamming calls close to end
+                break
+            else:
+                time.sleep(diff / 2)

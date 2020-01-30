@@ -1,7 +1,7 @@
 {
     "timeLimit": 300,
     "endRunOnCollision": true,
-    "zOffset":  0.1,
+    "zOffset":  0.2,
     "arenaBounds": [
         {
             "x": -29.35777832,

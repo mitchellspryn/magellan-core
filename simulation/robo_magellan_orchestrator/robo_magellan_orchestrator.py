@@ -144,7 +144,7 @@ class RoboMagellanCompetitionOrchestrator(object):
                 self.run_complete = True
                 self.run_end_reason = 'goal reached.'
 
-    def get_run_score(self, client):
+    def get_run_score(self):
         if (not self.run_complete 
             or self.end_time is None
             or not self.goal_point.visited):
@@ -157,7 +157,7 @@ class RoboMagellanCompetitionOrchestrator(object):
 
         return starting_score
 
-    def get_run_summary(self, client):
+    def get_run_summary(self):
         now = datetime.datetime.utcnow()
 
         summary = {}
@@ -166,7 +166,7 @@ class RoboMagellanCompetitionOrchestrator(object):
         summary['runEndTime'] = self.end_time
         summary['now'] = now
         summary['elapsedTime'] = (now - self.start_time).seconds
-        summary['score'] = self.get_run_score(client)
+        summary['score'] = self.get_run_score()
         summary['runEndReason'] = self.run_end_reason
 
         summary['coneInfo'] = []
@@ -189,8 +189,8 @@ class RoboMagellanCompetitionOrchestrator(object):
 
         return summary
 
-    def get_run_summary_string(self, client):
-        summary = self.get_run_summary(client)
+    def get_run_summary_string(self):
+        summary = self.get_run_summary()
 
         summary_text = '==============================================\n'
         summary_text += 'Summary \n'
@@ -234,6 +234,8 @@ class RoboMagellanCompetitionOrchestrator(object):
     def clean_up_run(self, client):
         for cone in self.cones:
             cone.delete(client)
+
+        self.goal_point.delete(client)
 
     def __parse_arena_bounds(self, arena_bounds_config):
         arena_bounds_vertices = []

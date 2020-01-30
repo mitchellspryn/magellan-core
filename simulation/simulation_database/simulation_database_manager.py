@@ -86,14 +86,15 @@ class SimulationDatabaseManager(object):
                                run_end_time,
                                error,
                                error_stack_trace,
-                               goal_pose):
+                               closest_distance,
+                               visited):
         parameters = {}
         parameters['run_id'] = run_id
         parameters['run_end_time'] = run_end_time
         parameters['error'] = error
         parameters['error_stack_trace'] = error_stack_trace
-        parameters['bot_closest_distance'] = goal_pose.closest_distance
-        parameters['goal_reached'] = goal_pose.visited
+        parameters['bot_closest_distance'] = closest_distance
+        parameters['goal_reached'] = visited
 
         query = """
             SELECT complete_simulated_run(
@@ -122,6 +123,7 @@ class SimulationDatabaseManager(object):
         query = """
             INSERT INTO bot_pose
             (
+                id,
                 run_id,
                 timestamp,
                 location,

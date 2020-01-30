@@ -132,3 +132,15 @@ VALUES
     4,
     'Completed Failure'
 );
+
+CREATE VIEW simulation_run_summary AS
+    SELECT  s.id,
+            s.start_time,
+            s.end_time,
+            st.description,
+            s.simulation_id,
+            s.client_id,
+            s.error
+    FROM simulation_run AS s
+    INNER JOIN status AS st
+        ON s.status = st.id;

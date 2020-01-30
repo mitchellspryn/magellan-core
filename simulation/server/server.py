@@ -56,7 +56,8 @@ def status():
     if (current_simulation_run is None):
         return json.dumps({'status': 'No simulation in progress.'}), 200
 
-    return json.dumps(current_simulation_run.last_status), 200
+    # Default is needed for datetime types.
+    return json.dumps(current_simulation_run.last_status, default=str), 200
 
 @app.route('/runs', methods=['DELETE'])
 def cancel_run():
@@ -70,7 +71,7 @@ def cancel_run():
     while(current_simulation_run.is_running):
         wait_count += 1
         if (wait_count > 100):
-            return json.dumps({'error': 'Could not stop simulation. Run.cancel() timed out.'})
+            return json.dumps({'error': 'Could not stop simulation. Run.cancel() timed out.'}), 500
         time.sleep(0.05)
 
     del current_simulation_run

@@ -1,5 +1,6 @@
 import json
 import requests
+import time
 
 def main():
     server_port = 5000
@@ -30,7 +31,36 @@ def main():
         print('FAILED: status_code = {0}'.format(response.status_code))
     
     print('Created experiment successfully.')
+    
+    for i in range(0, 2, 1):
+        if (i == 1):
+            print('Driving forward')
+            data = {}
+            data['left_throttle'] = 0.6
+            data['right_throttle'] = 0.6
+            response = requests.post(server_url + 'control', json=data)
+            if (response.status_code != 200):
+                print('FAILED. status_code = {0}'.format(response.status_code))
+            
         
+        print('Waiting 3 seconds...')
+        time.sleep(3)
+        
+        print('Getting current status...')
+        response = requests.get(server_url + 'runs')
+        if (response.status_code != 200):
+            print('FAILED: status code = {0}'.format(response.status_code))
+        
+        content = json.loads(response.content.decode('utf-8'))
+        print('Status: ')
+        print(content)
+        
+    print('Cancelling experiment.')
+    response = requests.delete(server_url + 'runs')
+    if (response.status_code != 200):
+        print('Failed. Status code = {0}'.format(response.status_code))
+    
+    print('Test complete.')
         
 if __name__ == '__main__':
     main()
