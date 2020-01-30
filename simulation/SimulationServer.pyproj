@@ -23,6 +23,7 @@
   <ItemGroup>
     <Folder Include="airsim\" />
     <Folder Include="annotations_common\" />
+    <Folder Include="test\" />
     <Folder Include="simulation_database\" />
     <Folder Include="server\" />
     <Folder Include="simulation_database\database_scripts\" />
@@ -78,9 +79,13 @@
     <Compile Include="server\simulator_instance_manager.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="test\test_server.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="three_bridges_annotations\test_three_bridges_annotations.py" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="server\server_config.json" />
     <Content Include="simulation_database\database_scripts\complete_simulation_run_function.sql" />
     <Content Include="simulation_database\database_scripts\compute_run_score_function.sql" />
     <Content Include="simulation_database\database_scripts\create_simulation_run_function.sql" />
@@ -89,6 +94,7 @@
     <Content Include="simulation_database\database_scripts\mark_bonus_cone_visited.sql" />
     <Content Include="simulation_database\database_scripts\table_and_type_definitions.sql" />
     <Content Include="simulation_database\database_scripts\vector_math_functions.sql" />
+    <Content Include="test\TestOrchestrationConfiguration.json" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

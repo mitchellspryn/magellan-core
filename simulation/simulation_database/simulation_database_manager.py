@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import psycopg2
+import psycopg2.pool
 import pytz
 
 
@@ -84,7 +85,7 @@ class SimulationDatabaseManager(object):
                                run_id,
                                run_end_time,
                                error,
-                               error_stack_trace
+                               error_stack_trace,
                                goal_pose):
         parameters = {}
         parameters['run_id'] = run_id

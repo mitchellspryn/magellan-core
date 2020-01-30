@@ -1,10 +1,14 @@
 import json
+import os
 
 class ServerConfig(object):
     def __init__(self, file_path):
         with open(file_path, 'r') as f:
             config_str = f.read()
         config_obj = json.loads(config_str)
+
+        for obj in config_obj:
+            setattr(self, obj, config_obj[obj])
 
         required_notnull_properties = [
             'db_database',

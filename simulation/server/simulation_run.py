@@ -17,11 +17,13 @@ import rm_bot_client.rm_bot_client as rm_bot_client
 import robo_magellan_orchestrator.robo_magellan_orchestrator as robo_magellan_orchestrator
 import simulation_database.simulation_database_manager as simulation_database_manager
 
-import simulation_instance_manager
+import simulator_instance_manager
 
 class SimulationRun(object):
     def __init__(self, client_config, simulation_instance_manager, database_client, server_config):
         self.is_running = True
+        self.is_complete = False
+        self.last_status = None
 
         self.client = rm_bot_client.RmBotClient()
         self.orchestrator = robo_magellan_orchestrator.RoboMagellanCompetitionOrchestrator(client_config)
@@ -95,13 +97,16 @@ class SimulationRun(object):
     def cancel(self):
         self.exception_queue.put(('The operation was cancelled by the user.', None))
 
+    def get_status(self):
+        return self.last_status
+
     def __main_monitor_thread(self):
         try:
             now = datetime.datetime.now(tzinfo=self.timezone)
             self.orchestrator.start_new_run(self.client)
-            status = self.orchestrator.get_run_summary(self.client)
+            self.last_status = self.orchestrator.get_run_summary(self.client)
             visited_cone_ids = set()
-            while(not status['runComplete']):
+            while(not self.last_status['runComplete']):
                 if not self.exception_queue.empty():
                     val = self.exception_queue.get()
                     self.error = val[0]
@@ -117,12 +122,17 @@ class SimulationRun(object):
                     raise RuntimeError('The simulator crashed. Check {0} for logs'.format(self.simulation_instance_manager.get_log_path()))
 
                 self.orchestrator.run_tick(self.client)
-                status = self.orchestrator.get_run_summary(self.client)
+                self.last_status = self.orchestrator.get_run_summary(self.client)
         except Exception as e:
             self.error = str(e)
             self.error_stack_trace = traceback.format_exc()
 
         self.is_running = False
+        
+        if (self.last_status is None):
+            self.last_status = {'status': 'completed'}
+        else:
+            self.last_status['isCompleted'] = True
 
         # Attempt to stop the car.
         # It's no big deal if it doesn't stop.
@@ -150,6 +160,8 @@ class SimulationRun(object):
             post_data['goal_visited'] = self.orchestrator.goal_point.visited
 
             requests.post(self.run_complete_callback_url, json=post_data)
+        
+        self.is_complete = True
 
     def __bot_location_monitor_bg_worker(self):
         try:

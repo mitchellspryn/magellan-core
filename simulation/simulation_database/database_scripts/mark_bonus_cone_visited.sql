@@ -8,7 +8,7 @@ BEGIN
     UPDATE bonus_cone AS b
     SET s.visited_time = visited_time
     WHERE b.cone_id = cone_id
-        AND b.run_id = run_id
+        AND b.run_id = run_id;
     
     RETURN QUERY
     SELECT cone_id AS updated_id;

@@ -6,5 +6,5 @@
     "db_user": "postgres",
     "simulator_path": "F:/RoboMagellan/SpringLandscapeBuilt/WindowsNoEditor/RMSpringLandscape.exe",
     "simulator_log_path": "F:/simulator_logs/",
-    "simulator_save_log_on_success": false
+    "simulator_delete_log_on_success": false
 }

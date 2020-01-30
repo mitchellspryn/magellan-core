@@ -22,7 +22,7 @@ CREATE TABLE simulation_run (
     simulation_id TEXT NOT NULL,
     client_id TEXT NULL,
     error TEXT NULL,
-    error_stack_trace NULL
+    error_stack_trace TEXT NULL
 );
 
 CREATE TYPE simulation_run_insert_type AS (
@@ -50,7 +50,7 @@ CREATE INDEX idx_bonus_cone_run_id ON bonus_cone(run_id);
 CREATE INDEX idx_bonus_cone_cone_id_run_id ON bonus_cone(cone_id, run_id);
 
 CREATE TYPE bonus_cone_insert_type AS (
-    cone_id,
+    cone_id INT,
     bonus_multiplier REAL,
     cone_type TEXT,
     location Vector3r
