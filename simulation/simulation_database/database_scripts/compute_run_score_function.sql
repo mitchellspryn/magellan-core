@@ -7,13 +7,13 @@ IMMUTABLE STRICT;
 
 CREATE AGGREGATE multiply_aggregate(basetype=REAL, sfunc=multiply, stype=REAL, initcond=1);
 
-CREATE FUNCTION compute_run_score(run_id_param BIGINT) RETURNS REAL 
+CREATE FUNCTION compute_run_score(_run_id BIGINT) RETURNS REAL 
 AS $$
     WITH cone_multiplier AS
     (
         SELECT multiply_aggregate(bonus_multiplier) AS multiplier
         FROM bonus_cone AS b
-        WHERE b.run_id = run_id_param
+        WHERE b.run_id = _run_id
         AND b.visited_time IS NOT NULL
     )
     SELECT CASE st.Description WHEN 'Not Started' THEN 0
@@ -32,7 +32,7 @@ AS $$
     INNER JOIN goal_pose AS gp
     ON gp.run_id = sr.id
     CROSS JOIN cone_multiplier AS c --one row
-    WHERE sr.id = run_id_param;
+    WHERE sr.id = _run_id;
 $$
 LANGUAGE SQL
 IMMUTABLE

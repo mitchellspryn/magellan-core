@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+import requests
 
 import simulation_run
 import server_config
@@ -20,11 +21,11 @@ def set_control_signals():
     if (current_simulation_run is None):
         return json.dumps({'error': 'No active siulation run'}), 400
 
-    data = request.json
+    data = flask.request.json
     if (not current_simulation_run.set_control_signals(data['left_throttle'], data['right_throttle'])):
         return json.dumps({'error': 'Could not set control signals.'})
 
-    return 200
+    return json.dumps({}), 200
 
 @app.route('/runs', methods=['POST'])
 def new_run():
@@ -36,7 +37,7 @@ def new_run():
     if (current_simulation_run is not None):
         return json.dumps({'error': 'Simulation currently in progress.'}), 400
 
-    create_request = requests.json
+    create_request = flask.request.json
 
     try:
         current_simulation_run = simulation_run.SimulationRun(create_request,
@@ -44,9 +45,10 @@ def new_run():
                                                               database_manager,
                                                               global_server_config)
         
-        return 200
+        return json.dumps({}), 200
     except Exception as e:
-        return json.dumps({'error': 'Cannot start simulation: {0}'.format(str(e))}), 400
+        raise
+        # return json.dumps({'error': 'Cannot start simulation: {0}'.format(str(e))}), 400
 
 @app.route('/runs', methods=['GET'])
 def status():
@@ -73,7 +75,7 @@ def cancel_run():
 
     del current_simulation_run
     current_simulation_run = None
-    return 200
+    return json.dumps({}), 200
 
 sim_instance_manager = None
 current_simulation_run = None
@@ -92,6 +94,7 @@ if __name__ == '__main__':
         sim_instance_manager = simulator_instance_manager.SimulatorInstanceManager(global_server_config.simulator_path,
                                                                                    global_server_config.simulator_log_path,
                                                                                    global_server_config.simulator_delete_log_on_success)
+
         app.run()
     finally:
         if (sim_instance_manager is not None):

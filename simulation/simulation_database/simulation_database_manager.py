@@ -26,20 +26,20 @@ class SimulationDatabaseManager(object):
             self.connection_pool.closeall()
             self.connection_pool = None
 
-    def create_simulation_run_function(self, 
-                                        run_start_time,
-                                        server_config,
-                                        client_config,
-                                        concrete_run_config,
-                                        simulation_id,
-                                        client_id,
-                                        bonus_cones,
-                                        spawn_pose,
-                                        goal_pose):
+    def create_simulation_run(self, 
+                                run_start_time,
+                                server_config,
+                                client_config,
+                                concrete_run_config,
+                                simulation_id,
+                                client_id,
+                                bonus_cones,
+                                spawn_pose,
+                                goal_pose):
         
         parameters = {}
         parameters['start_time'] = run_start_time
-        parameters['server_config'] = json.dumps(server_config)
+        parameters['server_config'] = json.dumps(server_config.__dict__)
         parameters['client_config'] = json.dumps(client_config)
         parameters['concrete_config'] = json.dumps(concrete_run_config)
         parameters['client_id'] = client_id
@@ -123,7 +123,7 @@ class SimulationDatabaseManager(object):
             INSERT INTO bot_pose
             (
                 run_id,
-                timstamp,
+                timestamp,
                 location,
                 orientation
             )
@@ -141,13 +141,14 @@ class SimulationDatabaseManager(object):
 
 
     def __execute(self, query, parameters, nonquery = False):
+        result = None
+
         try:
             connection = self.connection_pool.getconn()
 
             cursor = connection.cursor()
             cursor.execute(query, parameters)
 
-            result = None
             if (not nonquery):
                 result = cursor.fetchall()
 
@@ -157,5 +158,7 @@ class SimulationDatabaseManager(object):
         finally:
             if (connection):
                 self.connection_pool.putconn(connection)
+
+        return result
 
 

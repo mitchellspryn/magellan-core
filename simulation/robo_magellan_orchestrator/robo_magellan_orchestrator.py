@@ -16,7 +16,7 @@ import robo_magellan_orchestrator.goal_waypoint as goal_waypoint
 import robo_magellan_orchestrator.raycast_utils as raycast_utils
 
 class RoboMagellanCompetitionOrchestrator(object):
-    def __init__(self, config_values):
+    def __init__(self, config_values, client, random_seed):
         if ('arenaBounds' not in config_values):
             raise ValueError('"arenaBounds" not specified.')
         self.arena_bounds = self.__parse_arena_bounds(config_values['arenaBounds'])
@@ -52,6 +52,9 @@ class RoboMagellanCompetitionOrchestrator(object):
         self.z_offset = 0
         if ('zOffset' in config_values):
             self.z_offset = float(config_values['zOffset'])
+
+        if (random_seed is not None):
+            self.set_random_seed(random_seed)
 
         self.start_time = None
         self.end_time = None

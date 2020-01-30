@@ -1,20 +1,20 @@
 CREATE FUNCTION create_simulation_run(
-    start_time TIMESTAMPTZ,
-    server_config JSONB,
-    client_config JSONB,
-    concrete_config JSONB,
-    simulation_id TEXT,
-    client_id TEXT,
-    bonus_cones bonus_cone_insert_type[],
-    spawn_pose spawn_pose_insert_type,
-    goal_pose goal_pose_insert_type
+    _start_time TIMESTAMPTZ,
+    _server_config JSONB,
+    _client_config JSONB,
+    _concrete_config JSONB,
+    _simulation_id TEXT,
+    _client_id TEXT,
+    _bonus_cones bonus_cone_insert_type[],
+    _spawn_pose spawn_pose_insert_type,
+    _goal_pose goal_pose_insert_type
 ) RETURNS TABLE (inserted_id BIGINT) AS $$
 DECLARE
-    running_status_id BIGINT;
-    inserted_simulation_run_id BIGINT;
+    _running_status_id BIGINT;
+    _inserted_simulation_run_id BIGINT;
 BEGIN
     SELECT MAX(id) 
-        INTO inserted_simulation_run_id 
+        INTO _running_status_id 
     FROM status
     WHERE description = 'Running';
 
@@ -36,18 +36,18 @@ BEGIN
         VALUES
         (
             DEFAULT,
-            start_time,
+            _start_time,
             NULL,
-            inserted_simulation_run_id,
-            server_config,
-            client_config,
-            concrete_config,
-            simulation_id,
-            client_id, 
+            _running_status_id,
+            _server_config,
+            _client_config,
+            _concrete_config,
+            _simulation_id,
+            _client_id, 
             NULL
         ) RETURNING id
     ) SELECT MAX(id)
-        INTO inserted_simulation_run_id
+        INTO _inserted_simulation_run_id
     FROM insert_sim_run;
     
     INSERT INTO spawn_pose
@@ -60,9 +60,9 @@ BEGIN
     VALUES
     (
         DEFAULT,
-        inserted_simulation_run_id,
-        (spawn_pose).location,
-        (spawn_pose).orientation
+        _inserted_simulation_run_id,
+        (_spawn_pose).location,
+        (_spawn_pose).orientation
     );
     
     INSERT INTO goal_pose 
@@ -79,18 +79,18 @@ BEGIN
     VALUES
     (
         DEFAULT,
-        inserted_simulation_run_id,
-        FALSE,
+        _inserted_simulation_run_id,
+        FALSE::boolean,
         'infinity'::real,
-        (goal_pose).cone_type,
-        (goal_pose).location,
-        (goal_pose).position_tolerance,
-        (goal_pose).velocity_tolerance
+        (_goal_pose).cone_type,
+        (_goal_pose).location,
+        (_goal_pose).position_tolerance,
+        (_goal_pose).velocity_tolerance
     );
     
     WITH packed AS
     (
-        SELECT bonus_cones AS r
+        SELECT _bonus_cones AS r
     ),
     unnested AS
     (
@@ -107,8 +107,8 @@ BEGIN
         location
     )
     SELECT  --DEFAULT,
-            inserted_simulation_run_id,
-            cone_id,
+            (cones).cone_id,
+            _inserted_simulation_run_id,
             (cones).bonus_multiplier,
             NULL,
             (cones).cone_type,
@@ -116,7 +116,7 @@ BEGIN
     FROM unnested;
     
     RETURN QUERY
-    SELECT inserted_simulation_run_id AS inserted_id;
+    SELECT _inserted_simulation_run_id AS inserted_id;
     
 END;
 $$ LANGUAGE PLPGSQL;

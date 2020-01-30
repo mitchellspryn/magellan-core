@@ -70,9 +70,9 @@ class GoalWaypoint(spawnable_object.SpawnableObject):
     def to_db_tuple(self):
         return (self.cone_type,
                 (
-                    self.spawn_pose.position.x,
-                    self.spawn_pose.position.y,
-                    self.spawn_pose.position.z
+                    self.spawn_pose.position.x_val,
+                    self.spawn_pose.position.y_val,
+                    self.spawn_pose.position.z_val
                 ),
                 self.position_tolerance,
                 self.velocity_tolerance)

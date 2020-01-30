@@ -24,19 +24,24 @@ class SimulationRun(object):
         self.is_running = True
         self.is_complete = False
         self.last_status = None
+        self.server_config = server_config
+
+        self.random_seed = 42
+        if 'random_seed' in client_config:
+            self.random_seed = client_config['random_seed']
 
         self.client = rm_bot_client.RmBotClient()
-        self.orchestrator = robo_magellan_orchestrator.RoboMagellanCompetitionOrchestrator(client_config)
+        self.orchestrator = robo_magellan_orchestrator.RoboMagellanCompetitionOrchestrator(client_config, self.client, self.random_seed)
         self.database_client = database_client
         self.simulation_instance_manager = simulation_instance_manager
         self.exception_queue = queue.Queue()
 
         # TODO: For now, make client config == concrete config
-        self.depth_image_callback_url = client_config['depth_image_callback_url']
-        self.lidar_callback_url = client_config['lidar_callback_url']
-        self.ground_camera_callback_url = client_config['ground_callback_url']
-        self.imu_gps_callback_url = client_config['imu_gps_callback_url']
-        self.run_complete_callback_url = client_config['run_complete_callback_url']
+        self.depth_image_callback_url = client_config['depth_image_callback_url'] if 'depth_image_callback_url' in client_config else None
+        self.lidar_callback_url = client_config['lidar_callback_url'] if 'lidar_callback_url' in client_config else None
+        self.ground_camera_callback_url = client_config['ground_camera_callback_url'] if 'ground_camera_callback_url' in client_config else None
+        self.imu_gps_callback_url = client_config['imu_gps_callback_url'] if 'imu_gps_callback_url' in client_config else None
+        self.run_complete_callback_url = client_config['run_complete_callback_url'] if 'run_complete_callback_url' in client_config else None
 
         self.background_threads = []
         if (self.depth_image_callback_url is not None):
@@ -58,31 +63,25 @@ class SimulationRun(object):
         self.client_id = None
 
         if 'client_id' in client_config:
-            self.client_id = client_config[client_id]
+            self.client_id = client_config['client_id']
 
         if 'debug_draw' in client_config and client_config['debug_draw']:
             self.orchestrator.set_debug_draw_enabled(True)
         else:
             self.orchestrator.set_debug_draw_enabled(False)
 
-        self.random_seed = 42
-        if 'random_seed' in client_config:
-            self.random_seed = client_config['random_seed']
-
-        self.orchestrator.set_random_seed(client_config['random_seed'])
-
         self.start_time = datetime.datetime.now(tz=self.timezone)
         self.end_time = None
 
-        self.run_id = self.database_client.create_simulation_run_function(self.start_time,
-                                                                          self.server_config,
-                                                                          client_config,
-                                                                          client_config, # for now, concrete and logical config are the same thing
-                                                                          self.client_id,
-                                                                          self.simulation_instance_manager.simulation_execution_id,
-                                                                          self.orchestrator.cones,
-                                                                          self.orchestrator.start_pose,
-                                                                          self.orchestrator.goal_pose)
+        self.run_id = self.database_client.create_simulation_run(self.start_time,
+                                                                  self.server_config,
+                                                                  client_config,
+                                                                  client_config, # for now, concrete and logical config are the same thing
+                                                                  self.client_id,
+                                                                  self.simulation_instance_manager.simulation_execution_id,
+                                                                  self.orchestrator.cones,
+                                                                  self.orchestrator.start_pose,
+                                                                  self.orchestrator.goal_point)
 
 
         self.monitor_thread.start()
@@ -102,7 +101,7 @@ class SimulationRun(object):
 
     def __main_monitor_thread(self):
         try:
-            now = datetime.datetime.now(tzinfo=self.timezone)
+            now = datetime.datetime.now(tz=self.timezone)
             self.orchestrator.start_new_run(self.client)
             self.last_status = self.orchestrator.get_run_summary(self.client)
             visited_cone_ids = set()
@@ -141,13 +140,12 @@ class SimulationRun(object):
         except:
             pass
 
-        self.end_time = datetime.datetime.now(tzinfo=self.timezone)
+        self.end_time = datetime.datetime.now(tz=self.timezone)
         self.database_client.complete_simulated_run(self.run_id,
                                                     self.end_time,
                                                     self.error,
                                                     self.error_stack_trace,
-                                                    self.orchestrator.goal_point.closest_distance,
-                                                    self.orchestrator.goal_point.visited)
+                                                    self.orchestrator.goal_point)
 
         for background_thread in self.background_threads:
             background_thread.join()
@@ -165,20 +163,15 @@ class SimulationRun(object):
 
     def __bot_location_monitor_bg_worker(self):
         try:
-            now = datetime.datetime.now(tzinfo=self.timezone)
+            now = datetime.datetime.now(tz=self.timezone)
             while(self.is_running):
                 next_now = now + datetime.timedelta(seconds = 1.0 / 2.0) # 2 hz
                 response = self.client.simGetVehiclePose()
 
                 self.database_client.insert_bot_pose(self.run_id,
                                                      now,
-                                                     response.position.x_val,
-                                                     response.position.y_val,
-                                                     response.position.z_val,
-                                                     reponse.orientation.w_val,
-                                                     response.orientation.x_val,
-                                                     response.orientation.y_val,
-                                                     response.orientation.z_val)
+                                                     response.position,
+                                                     response.orientation)
 
                 now = next_now
                 pause.until(now)
