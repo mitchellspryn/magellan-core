@@ -209,7 +209,8 @@ class SimulationRun(object):
 
     def __publish_depth_image_bg_worker(self):
         try:
-            local_data = None
+            local_data_rgb = None
+            local_data_depth = None
             now = datetime.datetime.now(tz=self.timezone)
             while (self.is_running):
                 now += datetime.timedelta(seconds = 1.0 / 30.0) # 30 FPS
@@ -220,14 +221,14 @@ class SimulationRun(object):
                         at.ImageRequest('Xtion', at.ImageType.DepthPlanner, pixels_as_float=True, compress=False)]) # Misspelled "Planar"
 
                 if (local_data is None):
-                    local_data = np.zeros((response[0].shape[0], response[0].shape[1], 4), dtype=np.float32)
-
-                local_data[:, :, 0:3] = response[0]
-                local_data[:, :, 3] = response[1]
+                    local_data_rgb = np.zeros((response[0].shape[0], response[0].shape[1], 3), dtype=np.uint8)
+                    local_data_depth = np.zeros((reponse[0].shape[0], repsonse[0].shape[1]), dtype=np.float32)
 
                 post_data = {}
-                post_data['shape'] = local_data.shape
-                post_data['data'] = local_data.tostring(order='C')
+                post_data['rgb_shape'] = local_data_rgb.shape
+                post_data['depth_shape'] = local_data_depth.shape
+                post_data['rgb_data'] = local_data_rgb.tostring(order='C')
+                post_data['local_data_depth'] = local_data_depth.tostring(order='C')
 
                 response = requests.post(self.depth_image_callback_url, json=post_data)
 
@@ -244,9 +245,11 @@ class SimulationRun(object):
 
                 with SimulationRun.LockedSection(self) as l:
                     response = self.client.getLidarData('Lidar')
+                
+                ranges = np.linalg.norm(response.point_cloud, axis=1) * 1000
 
-                post_data = {}
-                post_data['shape'] = (response.point_cloud.shape / 3, 3)
+                post_data['shape'] = ranges.shape
+                post_data['ranges'] = ranges.tostring(order='C')
 
                 response = requests.post(self.lidar_callback_url, json=post_data)
 

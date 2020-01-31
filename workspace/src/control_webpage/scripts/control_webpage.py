@@ -252,7 +252,7 @@ def main():
     with open('control_webpage.html', 'r') as f:
         status_webpage = f.read()
 
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=12345)
 
 if __name__ == '__main__':
     main()
