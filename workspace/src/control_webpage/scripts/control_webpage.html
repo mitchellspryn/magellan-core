@@ -235,8 +235,8 @@
 
                     if ($scope.previousRightMotor != tmpRightMotor || $scope.previousLeftMotor != tmpLeftMotor) {
                         postData = {}
-                        postData['left_throttle'] = tmpRightMotor;
-                        postData['right_throttle'] = tmpLeftMotor;
+                        postData['left_throttle'] = tmpLeftMotor;
+                        postData['right_throttle'] = tmpRightMotor;
 
                         $scope.previousRightMotor = tmpRightMotor;
                         $scope.previousLeftMotor = tmpLeftMotor;

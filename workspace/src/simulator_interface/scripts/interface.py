@@ -3,7 +3,6 @@ import flask
 import os
 import rospy
 import signal
-import warning
 import cv2
 import threading
 import base64
@@ -13,6 +12,8 @@ import pandas as pd
 import math
 import json
 import requests
+import sys
+import argparse
 
 from sensor_msgs.msg import Image, LaserScan, NavSatFix
 from magellan_messages.msg import MsgMagellanImu, MsgMagellanDrive, MsgMagellanImu
@@ -23,57 +24,65 @@ app = flask.Flask(__name__)
 publisher_xtion_depth = None
 publisher_xtion_rgb = None
 publisher_lidar = None
-publisher_bottom_camera = None
+publisher_ground_camera = None
 publisher_imu = None
 publisher_gps = None
 publisher_run_complete_callback = None
+simulator_uri = None
 
 subscriber_control_signals = None
 
 cv_bridge = CvBridge()
 
-@app.route('/ping')
+@app.route('/ping', methods=['GET'])
 def ping():
     return 'pong', 200
 
-@app.route('/xtion')
+@app.route('/xtion', methods=['POST'])
 def receive_xtion():
     global publisher_xtion_depth
     global publisher_xtion_rgb
     global cv_bridge
 
-    data = flask.request.json
-    rgb_shape = data['rgb_shape']
-    depth_shape = data['depth_shape']
+    data = flask.request.get_data(parse_form_data=False)
+    height = int.from_bytes(data[0:4], 'big')
+    width = int.from_bytes(data[4:8], 'big')
 
-    rgb_image = np.fromstring(data['rgb_data'], order='C', dtype=np.uint8).reshape(rgb_shape)
-    depth_image = np.fromstring(data['depth_data'], order='C', dtype=np.float32).reshape(depth_shape)
+    num_rgb_bytes = height * width * 4
+    num_depth_bytes = height * width * 2
 
+    rgb_start = 8
+    rgb_end = 8+num_rgb_bytes
+
+    rgb_image = np.frombuffer(data[rgb_start:rgb_end], dtype=np.uint8).reshape((height, width, 4))[:, :, 0:3] # remove alpha channel
+    depth_image = np.frombuffer(data[rgb_end:], dtype=np.uint16).reshape((height, width, 1)) 
+
+    # TODO: for some reason, the RGB image comes in upside-down
+    # This doesn't appear to affect the depth image.
     now = rospy.Time.now()
-    rgb_image_msg = cv_bridge.cv2_to_imgmsg(rgb_image, 'bgr8')[::-1]
-    rgb_image_msg.stamp.header = now
+    rgb_image_msg = cv_bridge.cv2_to_imgmsg(np.flipud(rgb_image[::-1]), 'bgr8')
+    rgb_image_msg.header.stamp = now
 
     depth_image_msg = cv_bridge.cv2_to_imgmsg(depth_image, 'mono16')
-    depth_image_msg.stamp.header = now
+    depth_image_msg.header.stamp = now
 
     publisher_xtion_rgb.publish(rgb_image_msg)
-    publisher_xtion_depth.publisher(depth_image_msg)
+    publisher_xtion_depth.publish(depth_image_msg)
 
     return '', 200
 
-@app.route('/lidar')
+@app.route('/lidar', methods=['POST'])
 def receive_lidar():
     global publisher_lidar
     
-    data = flask.request.json
-    data_shape = data['shape']
-    data_ranges = np.fromstring(data['ranges'], dtype=np.float32).reshape(data_shape)
-    intensities = np.zeros(shape=data_shape, dtype=np.float32)
+    data = flask.request.get_data(parse_form_data=False)
+    data_ranges = np.frombuffer(data, dtype=np.float32).reshape(-1)
+    intensities = np.zeros(shape=data_ranges.shape[0], dtype=np.float32)
 
-    lidar_scan = LidarScan()
+    lidar_scan = LaserScan()
     lidar_scan.range_min = 0
     lidar_scan.range_max = 6.28 # 2*PI
-    lidar_scan.angle_increment = 6.28 / data_shape[0] 
+    lidar_scan.angle_increment = 6.28 / data_ranges.shape[0]
     lidar_scan.intensities = intensities
     lidar_scan.ranges = data_ranges
     lidar_scan.range_max = 6000
@@ -85,24 +94,26 @@ def receive_lidar():
 
     return '', 200
 
-@app.route('/ground_camera')
+@app.route('/ground_camera', methods=['POST'])
 def receive_ground_camera():
     global publisher_ground_camera
     global cv_bridge
 
-    data = flask.request.json
-    shape = data['shape']
-    rgb = np.fromstring(data['data'], order='C', dtype=np.uint8)
+    data = flask.request.get_data(parse_form_data=False)
+    height = int.from_bytes(data[0:4], 'big')
+    width = int.from_bytes(data[4:8], 'big')
+
+    rgb = np.frombuffer(data[8:], dtype=np.uint8).reshape((height, width, 4))[:, :, 0:3]
 
     now = rospy.Time.now()
-    img = cv_bridge.cv2_to_imgmsg(rgb, 'bgr8')[::-1]
-    img.stamp.header = now
+    img = cv_bridge.cv2_to_imgmsg(np.flipud(rgb[::-1]), 'bgr8')
+    img.header.stamp = now
 
     publisher_ground_camera.publish(img)
 
     return '', 200
 
-@app.route('/imu_gps')
+@app.route('/imu_gps', methods=['POST'])
 def receive_imu_gps():
     global publisher_imu
     global publisher_gps
@@ -123,9 +134,8 @@ def receive_imu_gps():
     imu_msg.magnetometer.y = data['mag_y']
     imu_msg.magnetometer.z = data['mag_z']
 
-
     gps_msg = NavSatFix()
-    gps_msg.stamp.header = now
+    gps_msg.header.stamp = now
 
     gps_msg.latitude = data['latitude']
     gps_msg.longitude = data['longitude']
@@ -134,45 +144,76 @@ def receive_imu_gps():
     publisher_imu.publish(imu_msg)
     publisher_gps.publish(gps_msg)
 
-@app.route('/run_complete')
+    return '', 200
+
+@app.route('/run_complete', methods=['POST'])
 def run_complete_callback():
     # TODO: do something with this
+    rospy.logerr('Run complete.')
+    return '', 200
+
+@app.route('/run_start', methods=['POST'])
+def run_start_callback():
+    #TODO: do something with this.
+    # It will have information like locations of cones, etc.
+    rospy.logerr('Run started.')
+    rospy.logerr('Parameters: {0}'.format(str(flask.request.json)))
     return '', 200
 
 def process_control_signals(drive_msg):
-    data = {}
-    data['left_throttle'] = drive_msg.left_throttle
-    data['right_throttle'] = drive_msg.right_throttle
+    global simulator_uri
 
-    requests.post('http://localhost:12345/drive', json=data)
+    data = {}
+    data['left_throttle'] = drive_msg.left_throttle / 100.0
+    data['right_throttle'] = drive_msg.right_throttle / 100.0
+
+    output_uri = '{0}/control'.format(simulator_uri)
+
+    requests.post(output_uri, json=data)
 
 def sig_handler(sig, frame):
     raise KeyboardInterrupt('ctrl+c pressed')
 
+def parse_args():
+    filtered_args = rospy.myargv(sys.argv)
+
+    parser = argparse.ArgumentParser(description='Interface to mock hardware components to simulator.')
+
+    parser.add_argument('--simulator-uri', dest='simulator_uri', type=str, help='The URI of the simulator (e.g. http://192.168.0.30:5000)')
+
+    return parser.parse_args(filtered_args[1:])
+
 def main():
-   global publisher_xtion_depth
-   global publisher_xtion_rgb
-   global publisher_lidar
-   global publisher_bottom_camera
-   global publisher_imu
-   global publisher_gps
-   global publisher_run_complete_callback
-   global subscriber_control_signals
+    global publisher_xtion_depth
+    global publisher_xtion_rgb
+    global publisher_lidar
+    global publisher_ground_camera
+    global publisher_imu
+    global publisher_gps
+    global publisher_run_complete_callback
+    global subscriber_control_signals
+    global simulator_uri
 
-   rospy.init_node('interface_callbacks')
+    rospy.init_node('simulator_interface')
 
-   publisher_xtion_depth = rospy.Publisher('output_xtion_depth', Image, queue_size=100)
-   publisher_xtion_rgb = rospy.Publisher('output_xtion_rgb', Image, queue_size=100)
-   publisher_lider = rospy.Publisher('output_lidar', LaserScan, queue_size=100)
-   publisher_bottom_camera = rospy.Publisher('output_bottom_camera', Image, queue_size=100)
-   publisher_imu = rospy.Publisher('output_imu', MsgMagellanImu, queue_size=100)
-   publisher_gps = rospy.Publisher('output_gps', NavSatFix, queue_size=100)
+    args = parse_args()
+    simulator_uri = args.simulator_uri
 
-   subscriber_control_signals = rospy.Subscriber('input_control_signals', MsgMagellanDrive, queue_size=100)
+    if (simulator_uri.endswith('/')):
+       simulator_uri = simulator_uri[:-1]
 
-   signal.signal(signal.SIGINT, sig_handler)
+    publisher_xtion_depth = rospy.Publisher('output_xtion_depth', Image, queue_size=100)
+    publisher_xtion_rgb = rospy.Publisher('output_xtion_rgb', Image, queue_size=100)
+    publisher_lidar = rospy.Publisher('output_lidar', LaserScan, queue_size=100)
+    publisher_ground_camera = rospy.Publisher('output_bottom_camera', Image, queue_size=100)
+    publisher_imu = rospy.Publisher('output_imu', MsgMagellanImu, queue_size=100)
+    publisher_gps = rospy.Publisher('output_gps', NavSatFix, queue_size=100)
 
-   app.run(host='0.0.0.0', port=55555)
+    subscriber_control_signals = rospy.Subscriber('input_control_signals', MsgMagellanDrive, process_control_signals, queue_size=100)
+
+    signal.signal(signal.SIGINT, sig_handler)
+
+    app.run(host='0.0.0.0', port=55555)
 
 if __name__ == '__main__':
     main()

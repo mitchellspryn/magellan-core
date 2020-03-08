@@ -5,7 +5,7 @@
   <description>This package interfaces with the simulator. It exposes topics for controlling the robot and topics for mocked sensor data</description>
   <maintainer email="mitchel.spryn@gmail.com">Mitchell Spryn</maintainer>
 
-  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
+  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
 
   <license>GPLv3</license>
 
