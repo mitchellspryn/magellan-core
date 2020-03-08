@@ -4,7 +4,7 @@
     "db_password": "",
     "db_port": 5432,
     "db_user": "postgres",
-    "simulator_path": "F:/RoboMagellan/SpringLandscapeBuilt/WindowsNoEditor/RMSpringLandscape.exe",
+    "simulator_path": "F:/RoboMagellan/SpringLandscapeBugfix/WindowsNoEditor/RMSpringLandscape.exe",
     "simulator_log_path": "F:/simulator_logs/",
     "simulator_delete_log_on_success": false
 }

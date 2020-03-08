@@ -8,6 +8,7 @@ import tzlocal
 import datetime
 import queue
 import traceback
+import base64
 
 import airsim
 import airsim.airsim_types as at
@@ -52,6 +53,7 @@ class SimulationRun(object):
         self.ground_camera_callback_url = client_config['ground_camera_callback_url'] if 'ground_camera_callback_url' in client_config else None
         self.imu_gps_callback_url = client_config['imu_gps_callback_url'] if 'imu_gps_callback_url' in client_config else None
         self.run_complete_callback_url = client_config['run_complete_callback_url'] if 'run_complete_callback_url' in client_config else None
+        self.run_start_callback_url = client_config['run_start_callback_url'] if 'run_start_callback_url' in client_config else None
 
         self.background_threads = []
         if (self.depth_image_callback_url is not None):
@@ -102,10 +104,17 @@ class SimulationRun(object):
         for callback in self.background_threads:
             callback.start()
 
+        if (self.run_start_callback_url is not None):
+            begin_status = self.orchestrator.get_run_summary()
+            post_data = json.dumps(begin_status, default=str)
+            unposted = json.loads(post_data)
+            requests.post(self.run_start_callback_url, json=unposted)
+
     def set_control_signals(self, left_throttle, right_throttle):
         if (self.is_running):
             with SimulationRun.LockedSection(self) as l:
                 self.client.drive(left_throttle, right_throttle)
+                return True
 
     def cancel(self):
         self.exception_queue.put(('The operation was cancelled by the user.', None))
@@ -120,10 +129,19 @@ class SimulationRun(object):
             with SimulationRun.LockedSection(self) as l:
                 self.orchestrator.start_new_run(self.client)
 
+            time.sleep(2)
             self.last_status = self.orchestrator.get_run_summary()
+            is_run_complete = self.last_status['runComplete']
+
+            while(is_run_complete):
+                time.sleep(0.1)
+                with SimulationRun.LockedSection(self) as l:
+                    self.orchestrator.run_tick(self.client)
+                is_run_complete = self.orchestrator.get_run_summary()['runComplete']
+
 
             visited_cone_ids = set()
-            while(not self.last_status['runComplete']):
+            while(not is_run_complete):
                 if not self.exception_queue.empty():
                     val = self.exception_queue.get()
                     self.error = val[0]
@@ -142,6 +160,7 @@ class SimulationRun(object):
                     self.orchestrator.run_tick(self.client)
 
                 self.last_status = self.orchestrator.get_run_summary()
+                is_run_complete = self.last_status['runComplete']
         except Exception as e:
             self.error = str(e)
             self.error_stack_trace = traceback.format_exc()
@@ -183,7 +202,10 @@ class SimulationRun(object):
             post_data['error_stack_trace'] = self.error_stack_trace
             post_data['goal_visited'] = self.orchestrator.goal_point.visited
 
-            requests.post(self.run_complete_callback_url, json=post_data)
+            post_data_str = json.dumps(post_data, default=str)
+            post_data_out = json.loads(post_data_str)
+
+            requests.post(self.run_complete_callback_url, json=post_data_out)
         
         self.is_complete = True
 
@@ -209,7 +231,6 @@ class SimulationRun(object):
 
     def __publish_depth_image_bg_worker(self):
         try:
-            local_data = None
             now = datetime.datetime.now(tz=self.timezone)
             while (self.is_running):
                 now += datetime.timedelta(seconds = 1.0 / 30.0) # 30 FPS
@@ -219,17 +240,16 @@ class SimulationRun(object):
                         at.ImageRequest('Xtion', at.ImageType.Scene, pixels_as_float=False, compress=False),
                         at.ImageRequest('Xtion', at.ImageType.DepthPlanner, pixels_as_float=True, compress=False)]) # Misspelled "Planar"
 
-                if (local_data is None):
-                    local_data = np.zeros((response[0].shape[0], response[0].shape[1], 4), dtype=np.float32)
+                # simulator returns depths in meters. 
+                # xtion returns in mm
+                # range of use is between 0.8m and 3.5m. (https://www.asus.com/3D-Sensor/Xtion_PRO/specifications/)
+                # code golfed for performance...
+                post_data = response[0].height.to_bytes(4, 'big') \
+                        + response[0].width.to_bytes(4, 'big') \
+                        + response[0].image_data_uint8 \
+                        + np.clip(np.array(response[1].image_data_float, dtype=np.float32) * 1000.0, 800, 3500).astype(np.uint16).tobytes(order=None)
 
-                local_data[:, :, 0:3] = response[0]
-                local_data[:, :, 3] = response[1]
-
-                post_data = {}
-                post_data['shape'] = local_data.shape
-                post_data['data'] = local_data.tostring(order='C')
-
-                response = requests.post(self.depth_image_callback_url, json=post_data)
+                response = requests.post(self.depth_image_callback_url, data=post_data)
 
                 self.__pause_until(now)
         except Exception as e:
@@ -239,18 +259,35 @@ class SimulationRun(object):
     def __publish_lidar_bg_worker(self):
         try:
             now = datetime.datetime.now(tz=self.timezone)
+            data_buf = np.zeros((360), dtype=np.float32)
+            first_buf = True
             while (self.is_running):
                 now += datetime.timedelta(seconds= 1.0 / 5.0) # 5 Hz
 
                 with SimulationRun.LockedSection(self) as l:
                     response = self.client.getLidarData('Lidar')
 
-                post_data = {}
-                post_data['shape'] = (response.point_cloud.shape / 3, 3)
+             
 
-                response = requests.post(self.lidar_callback_url, json=post_data)
+                should_send = False
+                for i in range(0, len(response.point_cloud), 3):
+                    x = response.point_cloud[i]
+                    y = response.point_cloud[i+1]
+                    ang = np.arctan2(y, x) * 180.0 / np.pi
+                    if (ang < 0):
+                        ang += 360.0
+
+                    bucket = int(ang)
+                    data_buf[bucket] = np.linalg.norm(response.point_cloud[i:i+3]) * 10.0 # Response from AirSim comes in cm, lidar is in mm
+
+                if (first_buf):
+                    first_buf = False
+                else:
+                    post_data = np.clip(data_buf, 0, 6000).tobytes(order=None)
+                    response = requests.post(self.lidar_callback_url, data=post_data)
 
                 self.__pause_until(now)
+
         except Exception as e:
             self.exception_queue.put((str(e), traceback.format_exc()))
             raise
@@ -266,11 +303,11 @@ class SimulationRun(object):
                     response = self.client.simGetImages([
                         at.ImageRequest('Ground', at.ImageType.Scene, pixels_as_float=False, compress=False)])
 
-                post_data = {}
-                post_data['shape'] = response[0].shape
-                post_data['data'] = response[0].tostring(order='C')
+                post_data = response[0].height.to_bytes(4, 'big') \
+                          + response[0].width.to_bytes(4, 'big') \
+                            + response[0].image_data_uint8
 
-                response = requests.post(self.ground_camera_callback_url, json=post_data)
+                response = requests.post(self.ground_camera_callback_url, data=post_data)
 
                 self.__pause_until(now)
         except Exception as e:
@@ -279,7 +316,7 @@ class SimulationRun(object):
 
     def __publish_imu_gps_bg_worker(self):
         try:
-            now = datetime.datetime.now(tzlocal=self.timezone)
+            now = datetime.datetime.now(tz=self.timezone)
 
             while(self.is_running):
                 now += datetime.timedelta(seconds = 1.0 / 20.0) # 20 hz
@@ -295,13 +332,13 @@ class SimulationRun(object):
                 post_data['imu_pitch'] = response['readings']['BodyImu']['IMU-Ang-pitch']
                 post_data['imu_yaw'] = response['readings']['BodyImu']['IMU-Ang-yaw']
 
-                post_data['latitude'] = response['readings']['GPS']['geo_point']['latitude']
-                post_data['longitude'] = response['readings']['GPS']['geo_point']['longitude']
-                post_data['altitude'] = response['readings']['GPS']['geo_point']['altitude']
+                post_data['latitude'] = response['readings']['GPS']['GPS-Loc-latitude']
+                post_data['longitude'] = response['readings']['GPS']['GPS-Loc-longitude']
+                post_data['altitude'] = response['readings']['GPS']['GPS-Loc-altitude']
 
-                post_data['mag_x'] = response['readings']['Magentometer']['Mag-Vec-x']
-                post_data['mag_y'] = response['readings']['Magentometer']['Mag-Vec-y']
-                post_data['mag_z'] = response['readings']['Magentometer']['Mag-Vec-z']
+                post_data['mag_x'] = response['readings']['Magnetometer']['Mag-Vec-x']
+                post_data['mag_y'] = response['readings']['Magnetometer']['Mag-Vec-y']
+                post_data['mag_z'] = response['readings']['Magnetometer']['Mag-Vec-z']
 
                 response = requests.post(self.imu_gps_callback_url, json=post_data)
 

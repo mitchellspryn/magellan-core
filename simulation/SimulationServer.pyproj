@@ -23,6 +23,8 @@
   <ItemGroup>
     <Folder Include="airsim\" />
     <Folder Include="annotations_common\" />
+    <Folder Include="runner\" />
+    <Folder Include="runner\tests\" />
     <Folder Include="test\" />
     <Folder Include="simulation_database\" />
     <Folder Include="server\" />
@@ -49,6 +51,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="rm_bot_client\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="runner\runner.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="server\server_config.py">
@@ -85,6 +90,7 @@
     <Compile Include="three_bridges_annotations\test_three_bridges_annotations.py" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="runner\tests\basic.json" />
     <Content Include="server\server_config.json" />
     <Content Include="simulation_database\database_scripts\complete_simulation_run_function.sql" />
     <Content Include="simulation_database\database_scripts\compute_run_score_function.sql" />

@@ -1,0 +1,81 @@
+{
+    "timeLimit": 300,
+    "endRunOnCollision": true,
+    "zOffset":  0.2,
+    "arenaBounds": [
+        {
+            "x": -200.35777832,
+            "y": -200.35414062
+        },
+        {
+            "x": -200.20545166,
+            "y": 200.16739258
+        },
+        {
+            "x": 200.7182666,
+            "y": 200.98824219
+        },
+        {
+            "x": 200.25103027,
+            "y": -200.24158203
+        }
+    ],
+    "startPose": {
+        "poseList": [
+            {
+                "x": -12.69569458,
+                "y": -104.66664062,
+                "roll": 0,
+                "pitch": 0,
+                "yaw": 3.14159
+            }
+        ]
+    },
+    "goalPoint": {
+        "poseList": [
+            {
+                "x": -44.60454102,
+                "y": -174.03326172
+            }
+        ],
+        "positionTolerance": 0.5,
+        "velocityTolerance": 0.1,
+        "coneType":  "bright"
+    },
+    "cones": [
+        {
+            "poseList": [
+                {
+                    "x": -40.65372559,
+                    "y": -164.00431641
+                }
+
+            ],
+            "coneType": "bright",
+            "bonusMultiplier": 0.5
+        },
+        {
+            "spawnRegion": [
+                {
+                    "x": -44.80118164,
+                    "y": -167.97380859
+                },
+                {
+                    "x": -46,
+                    "y": -167
+                },
+                {
+                    "x": -46,
+                    "y": -169
+                },
+                {
+                    "x": -44.8,
+                    "y":  -169
+                }
+            ],
+            "coneType": "normal",
+            "bonusMultiplier": 0.25
+        }
+    ],
+    "random_seed": 42
+}
