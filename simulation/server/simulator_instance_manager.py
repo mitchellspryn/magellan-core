@@ -13,6 +13,8 @@ class SimulatorInstanceManager(object):
         self.simulation_execution_id = str(uuid.uuid4())
         
         self.simulator_exe_name = self.simulator_path.split('/')[-1]
+
+        self.__kill_simulator_process(force=True)
         
         self.__simulator_popen_obj = self.__start_simulator()
     
@@ -43,11 +45,13 @@ class SimulatorInstanceManager(object):
         args = [self.simulator_path, 'ABSLOG={0}'.format(self.get_log_path())]
         return subprocess.Popen(args)
 
-    def __kill_simulator_process(self):
-        if (self.__simulator_popen_obj is None):
+    def __kill_simulator_process(self, force = False):
+        if (not force and self.__simulator_popen_obj is None):
             return
 
-        is_termination_graceful = self.is_simulation_alive()
+        is_termination_graceful = False
+        if (not force):
+            is_termination_graceful = self.is_simulation_alive()
         
         # This doesn't seem to work.
         # self.__simulator_popen_obj.kill()

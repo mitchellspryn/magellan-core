@@ -11,7 +11,7 @@ import simulator_instance_manager
 import flask
 app = flask.Flask(__name__)
 
-@app.route('/ping')
+@app.route('/ping', methods=['GET'])
 def status_page():
     return 'pong', 200
 
@@ -19,11 +19,24 @@ def status_page():
 def set_control_signals():
     global current_simulation_run
     if (current_simulation_run is None):
-        return json.dumps({'error': 'No active siulation run'}), 400
+        return json.dumps({'error': 'No active simulation run'}), 400
 
     data = flask.request.json
+
+    if (data is None):
+        return json.dumps({'error': 'Json not supplied.'}), 400
+
+    if ('left_throttle' not in data or 'right_throttle' not in data):
+        return json.dumps({'error': 'Json missing left_throttle or right_throttle.'}), 400
+
+    if (data['left_throttle'] > 1 or data['left_throttle'] < -1):
+        return json.dumps({'error': 'left_throttle is {0}, which is outside the range [-1, 1].'.format(data['left_throttle'])}), 400
+
+    if (data['right_throttle'] > 1 or data['right_throttle'] < -1):
+        return json.dumps({'error': 'right_throttle is {0}, which is outside the range [-1, 1].'.format(data['right_throttle'])}), 400
+
     if (not current_simulation_run.set_control_signals(data['left_throttle'], data['right_throttle'])):
-        return json.dumps({'error': 'Could not set control signals.'})
+        return json.dumps({'error': 'Could not set control signals.'}), 400
 
     return json.dumps({}), 200
 
@@ -33,6 +46,10 @@ def new_run():
     global sim_instance_manager
     global database_manager
     global global_server_config
+
+    if (current_simulation_run is not None and current_simulation_run.is_complete):
+        del current_simulation_run
+        current_simulation_run = None
 
     if (current_simulation_run is not None):
         return json.dumps({'error': 'Simulation currently in progress.'}), 400
@@ -96,7 +113,7 @@ if __name__ == '__main__':
                                                                                    global_server_config.simulator_log_path,
                                                                                    global_server_config.simulator_delete_log_on_success)
 
-        app.run()
+        app.run(host='0.0.0.0')
     finally:
         if (sim_instance_manager is not None):
             sim_instance_manager.finalize()
