@@ -43,7 +43,7 @@
         <remap from="input_left_serial_topic" to="/left_roboclaw_motor_controller_serial_port/output_topic" />
         <remap from="output_right_topic" to="/roboclaw_motor_hardware/output_right_topic" />
         <remap from="input_right_serial_topic" to="/right_roboclaw_motor_controller_serial_port/output_topic" />
-        <remap from="input_command_topic" to="/control_webpage/output_motor_control" />
+        <remap from="input_command_topic" to="/drive_file_node/output_topic" />
     </node>
 
     <node name="drive_file_node" pkg="drive_from_file" type="node.py" args="--drive-file $(drive_file_path)" >
