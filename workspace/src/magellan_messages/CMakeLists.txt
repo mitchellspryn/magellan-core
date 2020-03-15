@@ -18,6 +18,7 @@ add_message_files(
     magellan_drive/MsgMagellanDrive.msg
     visual_odometry/MsgVisualOdometryDebug.msg
     visual_odometry/MsgVisualOdometry.msg
+    magellan_obstacle_detection/MsgLocalObstacleField.msg
 )
 
 generate_messages(
