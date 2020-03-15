@@ -22,5 +22,14 @@ else
     catkin_make clean -DCMAKE_MODULE_PATH=$CMAKE_MODULE_DIR
     catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m -DPYTHON_LIBRARY=$PYTHON_LIBRARY -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MODULE_PATH=$CMAKE_MODULE_DIR
 
+    # Force regen of the launch files only if on jetson
+    isjetson=$(lscpu | grep "aarch64")
+    if [ -n "$isjetson" ]
+    then
+        echo "regenerating launch files from mapped hardware."
+        rm -r launch
+        python3 utility-scripts/detect_hardware.py --generate-launch-files
+    fi
+
     source devel/setup.bash
 fi

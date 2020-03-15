@@ -9,7 +9,7 @@
         <remap from="output_motor_control" to="/control_webpage/output_motor_control" />
     </node>
 
-    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n /dev/ttyACM3 -b 38400 -s ? -m 25 -a 128 -h FA">
+    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n {arduino_device_node} -b 38400 -s ? -m 25 -a 128 -h FA">
         <remap from="output_topic" to="/arduino_serial_port/output_topic" />
     </node>
 
@@ -19,7 +19,7 @@
         <remap from="output_topic_imu" to="/arduino_sensor_reader/output_topic_imu" />
     </node>
 
-    <node name="webcam_sensor_reader" pkg="webcam_sensor_reader" type="node" args="-i 1 -f 30 -q 1">
+    <node name="webcam_sensor_reader" pkg="webcam_sensor_reader" type="node" args="-i {ground_camera_index} -f 30 -q 1">
         <remap from="output_topic" to="/webcam_sensor_reader/output_topic" />
     </node>
 
@@ -28,7 +28,7 @@
         <remap from="depth_output_topic" to="/xtion_reader/depth_output_topic" />
     </node>
 
-    <node name="lidar_serial_port" pkg="magellan_serial_port" type="node" args="-n /dev/ttyACM2 -b 115200 -m 22 -a 22 -h FA">
+    <node name="lidar_serial_port" pkg="magellan_serial_port" type="node" args="-n {lidar_device_node} -b 115200 -m 22 -a 22 -h FA">
         <remap from="output_topic" to="/lidar_serial_port/output_topic" />
     </node>
 
@@ -37,12 +37,12 @@
         <remap from="output_topic" to="/lidar_sensor_reader/output_topic" />
     </node>
 
-    <node name="right_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n /dev/ttyACM1 -b 38400 -m 0 -a 1 -o">
+    <node name="right_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n {right_motor_device_node} -b 38400 -m 0 -a 1 -o">
         <remap from="input_topic" to="/roboclaw_motor_hardware/output_right_topic" />
         <remap from="output_topic" to="/right_roboclaw_motor_controller_serial_port/output_topic" />
     </node>
 
-    <node name="left_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n /dev/ttyACM0 -b 38400 -m 0 -a 1 -o">
+    <node name="left_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n {left_motor_device_node} -b 38400 -m 0 -a 1 -o">
         <remap from="input_topic" to="/roboclaw_motor_hardware/output_left_topic" />
         <remap from="output_topic" to="/left_roboclaw_motor_controller_serial_port/output_topic" />
     </node>
