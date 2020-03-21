@@ -5,12 +5,13 @@ import colorama
 import os
 import shutil
 
-NODES_OF_INTEREST = ['ttyACM0', 'ttyACM1', 'ttyACM2', 'ttyACM3', 'video1']
+NODES_OF_INTEREST = ['ttyACM0', 'ttyACM1', 'ttyACM2', 'ttyACM3', 'video1', 'video2', 'ttyUSB0']
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Detects connected hardware, optionally generating the roslaunch files.')
 
     parser.add_argument('--generate-launch-files', action='store_true', dest='generate_launch_files', required=False)
+    parser.add_argument('--strict', action='store_true', dest='strict', required=False)
 
     args = parser.parse_args()
 
@@ -72,6 +73,15 @@ def get_lidar_node(listings):
 
     return None
 
+def get_rplidar_node(listings):
+    for potential_node in [n for n in NODES_OF_INTEREST if 'USB' in n]:
+        if potential_node in listings['udevadm_listings']:
+            listing = listings['udevadm_listings'][potential_node]
+            if len(listing) >= 3 and 'Silicon_Labs_CP2102' in listing[2]:
+                return potential_node
+
+    return None
+
 def get_arduino_node(listings):
     for potential_node in [n for n in NODES_OF_INTEREST if 'ACM' in n]:
         if potential_node in listings['udevadm_listings']:
@@ -87,6 +97,8 @@ def get_video_node(listings):
 
     if 'video1' in listings['udevadm_listings']:
         return 'video1'
+    elif 'video2' in listings['udevadm_listings']:
+        return 'video2'
 
     return None
 
@@ -129,13 +141,26 @@ def refresh_launch_files(node_mappings):
     for template in launch_templates:
         with open(os.path.join(launch_template_dir, template), 'r') as in_file:
             with open(os.path.join(launch_dir, template[:-15] + '.launch'), 'w') as out_file:
-                text = in_file.read()
+                replaced = in_file.read()
+                
 
-                replaced = text.replace('{arduino_device_node}', '/dev/{0}'.format(node_mappings['arduino']))
-                replaced = replaced.replace('{lidar_device_node}', '/dev/{0}'.format(node_mappings['lidar']))
-                replaced = replaced.replace('{left_motor_device_node}', '/dev/{0}'.format(node_mappings['left_motor']))
-                replaced = replaced.replace('{right_motor_device_node}', '/dev/{0}'.format(node_mappings['right_motor']))
-                replaced = replaced.replace('{ground_camera_index}', '1')
+                if 'arduino' in node_mappings:
+                    replaced = replaced.replace('{arduino_device_node}', '/dev/{0}'.format(node_mappings['arduino']))
+
+                if 'lidar' in node_mappings:
+                    replaced = replaced.replace('{lidar_device_node}', '/dev/{0}'.format(node_mappings['lidar']))
+
+                if 'left_motor' in node_mappings:
+                    replaced = replaced.replace('{left_motor_device_node}', '/dev/{0}'.format(node_mappings['left_motor']))
+
+                if 'right_motor' in node_mappings:
+                    replaced = replaced.replace('{right_motor_device_node}', '/dev/{0}'.format(node_mappings['right_motor']))
+
+                if 'rplidar' in node_mappings:
+                    replaced = replaced.replace('{rplidar_device_node}', '/dev/{0}'.format(node_mappings['rplidar']))
+
+                if 'ground_camera_index' in node_mappings:
+                    replaced = replaced.replace('{ground_camera_index}', node_mappings['ground_camera'].replace('video', ''))
 
                 out_file.write(replaced)
 
@@ -148,7 +173,8 @@ def main():
 
     node_mappings = {}
     node_mappings['arduino'] = get_arduino_node(listings)
-    node_mappings['lidar'] = get_lidar_node(listings)
+    #node_mappings['lidar'] = get_lidar_node(listings)
+    node_mappings['rplidar'] = get_rplidar_node(listings)
     node_mappings['left_motor'] = get_motor_controller_node(listings, 130)
     node_mappings['right_motor'] = get_motor_controller_node(listings, 128)
     node_mappings['ground_camera'] = get_video_node(listings)
@@ -159,12 +185,22 @@ def main():
 
     if (args.generate_launch_files):
         if not all(node_mappings.values()):
-            print(colorama.fore.RED, end='')
-            print('Cannot generate launch files, as some connected devices could not be found. Please check for hardware connectivity.')
-            print(colorama.style.RESET_ALL)
-        else:
-            refresh_launch_files(node_mappings)
-            print('Launch files have been regenerated.')
+            if args.strict:
+                print(colorama.Fore.RED, end='')
+                print('Cannot generate launch files, as some connected devices could not be found. Please check for hardware connectivity.')
+                print(colorama.Style.RESET_ALL)
+                return
+            else:
+                print(colorama.Fore.RED, end='')
+                print('*************')
+                print('* WARNING   *')
+                print('*************')
+                print()
+                print('Not all devices could be found. Not all launch files will be valid.')
+                print(colorama.Style.RESET_ALL, end='')
+
+        refresh_launch_files(node_mappings)
+        print('Launch files have been regenerated.')
     
 if __name__ == '__main__':
     main()

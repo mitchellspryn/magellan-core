@@ -3,7 +3,7 @@
         <remap from="input_image_bottom_camera" to="/webcam_sensor_reader/output_topic" />
         <remap from="input_image_xtion_rgb" to="/xtion_reader/rgb_output_topic" />
         <remap from="input_image_xtion_depth" to="/xtion_reader/depth_output_topic" />
-        <remap from="input_lidar" to="/lidar_sensor_reader/output_topic" />
+        <remap from="input_lidar" to="/rplidar_sensor_reader/output_topic" />
         <remap from="input_imu" to="/arduino_sensor_reader/output_topic_imu" />
         <remap from="input_gps" to="/arduino_sensor_reader/output_topic_gps" />
         <remap from="output_motor_control" to="/control_webpage/output_motor_control" />
@@ -28,13 +28,8 @@
         <remap from="depth_output_topic" to="/xtion_reader/depth_output_topic" />
     </node>
 
-    <node name="lidar_serial_port" pkg="magellan_serial_port" type="node" args="-n {lidar_device_node} -b 115200 -m 22 -a 22 -h FA">
-        <remap from="output_topic" to="/lidar_serial_port/output_topic" />
-    </node>
-
-    <node name="lidar_sensor_reader" pkg="lidar_sensor_reader" type="node" args="-m 20">
-        <remap from="input_topic" to="/lidar_serial_port/output_topic" />
-        <remap from="output_topic" to="/lidar_sensor_reader/output_topic" />
+    <node name="rplidar_sensor_reader" pkg="rplidar_sensor_reader" type="node" args="-n {rplidar_device_node} -m stability">
+        <remap from="output_topic" to="/rplidar_sensor_reader/output_topic" />
     </node>
 
     <node name="right_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n {right_motor_device_node} -b 38400 -m 0 -a 1 -o">

@@ -116,8 +116,8 @@ def process_lidar(data):
         for i in range(0, len(data.ranges), 1):
             this_point_angle = float(i) * data.angle_increment
             this_point_range = max(min(data.ranges[i], data.range_max), data.range_min)
-            this_point_intensity_red = int(255.0 * (1.0 - (data.intensities[i] / 65535)))
-            this_point_intensity_blue = int(255.0 * (data.intensities[i] / 65535))
+            this_point_intensity_red = int(255.0 * (1.0 - (data.intensities[i] / 255)))
+            this_point_intensity_blue = int(255.0 * (data.intensities[i] / 255))
 
             this_point_pixel_distance = (image_size / 2.0) * (this_point_range / data.range_max)
             this_pixel_dx = math.cos(this_point_angle) * this_point_pixel_distance

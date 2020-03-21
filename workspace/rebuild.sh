@@ -28,7 +28,7 @@ else
     then
         echo "regenerating launch files from mapped hardware."
         rm -r launch
-        python3 utility-scripts/detect_hardware.py --generate-launch-files
+        python3 utility-scripts/detect_hardware.py --generate-launch-files --strict
     fi
 
     source devel/setup.bash

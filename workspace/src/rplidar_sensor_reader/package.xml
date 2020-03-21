@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>rplidar_sensor_reader</name>
+  <version>0.0.0</version>
+  <description>This package will read from a serial port stream connected to a slamtech rplidar and package the data into sensor_msgs/LaserScan packages</description>
+
+  <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
+  <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>
+  <license>GPLv3</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>magellan_messages</build_depend>
+  <build_depend>magellan_serial_port</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_export_depend>magellan_messages</build_export_depend>
+  <build_export_depend>magellan_serial_port</build_export_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>messsage_generation</build_export_depend>
+  <exec_depend>magellan_messages</exec_depend>
+  <exec_depend>magellan_serial_port</exec_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>message_generation</exec_depend>
+</package>
