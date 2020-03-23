@@ -1,5 +1,5 @@
 <launch>
-    <arg name="drive_file_path" default="/home/mitchell/magellan-core/magellan-core/workspace/data/drive_files/drive.drive" />
+    <arg name="drive_file_path" />
     <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n {arduino_device_node} -b 38400 -s ? -m 25 -a 128 -h FA">
         <remap from="output_topic" to="/arduino_serial_port/output_topic" />
     </node>
@@ -19,14 +19,9 @@
         <remap from="depth_output_topic" to="/xtion_reader/depth_output_topic" />
     </node>
 
-    <node name="lidar_serial_port" pkg="magellan_serial_port" type="node" args="-n {lidar_device_node} -b 115200 -m 22 -a 22 -h FA">
-        <remap from="output_topic" to="/lidar_serial_port/output_topic" />
-    </node>
-
-    <node name="lidar_sensor_reader" pkg="lidar_sensor_reader" type="node" args="-m 20">
-        <remap from="input_topic" to="/lidar_serial_port/output_topic" />
-        <remap from="output_topic" to="/lidar_sensor_reader/output_topic" />
-    </node>
+    <node name="rplidar_sensor_reader" pkg="rplidar_sensor_reader" type="node" args="-n {rplidar_device_node} -m stability">
+        <remap from="output_topic" to="/rplidar_sensor_reader/output_topic" />
+    </node>   
 
     <node name="right_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n {right_motor_device_node} -b 38400 -m 0 -a 1 -o">
         <remap from="input_topic" to="/roboclaw_motor_hardware/output_right_topic" />
@@ -46,10 +41,10 @@
         <remap from="input_command_topic" to="/drive_file_node/output_topic" />
     </node>
 
-    <node name="drive_file_node" pkg="drive_from_file" type="node.py" args="--drive-file $(drive_file_path)" >
+    <node name="drive_file_node" pkg="drive_from_file" type="node.py" cwd="node" args="--drive-file $(arg drive_file_path)" required="true">
         <remap from="output_topic" to="/drive_file_node/output_topic" />
     </node>
 
-    <node name="recorder" pkg="rosbag" type="record" args="/webcam_sensor_reader/output_topic /xtion_reader/rgb_output_topic /xtion_reader/depth_output_topic /lidar_sensor_reader/output_topic /arduino_sensor_reader/output_topic_gps /arduino_sensor_reader/output_topic_imu /drive_file_node/output_topic -o all" />
+    <node name="recorder" pkg="rosbag" type="record" args="/webcam_sensor_reader/output_topic /xtion_reader/rgb_output_topic /xtion_reader/depth_output_topic /rplidar_sensor_reader/output_topic /arduino_sensor_reader/output_topic_gps /arduino_sensor_reader/output_topic_imu /drive_file_node/output_topic -o {rosbag_output_dir}all" />
 
 </launch>

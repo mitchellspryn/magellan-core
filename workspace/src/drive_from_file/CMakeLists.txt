@@ -4,6 +4,7 @@ project(drive_from_file)
 find_package(catkin REQUIRED COMPONENTS
     rospy
     std_msgs
+    magellan_messages
 )
 
 catkin_package(

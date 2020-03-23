@@ -5,6 +5,10 @@ add_compile_options(-std=c++11)
 
 find_library(RPLIDAR_SDK_LIB_LOCATION NAMES librplidar_sdk.a PATHS /usr/lib/librplidar_sdk)
 
+if( NOT RPLIDAR_SDK_LIB_LOCATION )
+    message( FATAL_ERROR "RPLidar SDK not found. Download the SDK from http://www.github.com/Slamtec/rplidar_sdk, build it, and copy the generated librplidar_sdk.a file to /usr/lib/rplidar_sdk, creating the directory if it does not already exist")
+endif()
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs

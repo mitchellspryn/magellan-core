@@ -9,7 +9,7 @@
         <remap from="output_topic_imu" to="/arduino_sensor_reader/output_topic_imu" />
     </node>
 
-    <node name="raw_data_recorder" pkg="rosbag" type="record" args="/arduino_serial_port/output_topic -o ArduinoRawData" />
-    <node name="processed_data_recorder_gps" pkg="rosbag" type="record" args="/arduino_sensor_reader/output_topic_gps -o ArduinoProcessedDataGps" />
-    <node name="processed_data_recorder_imu" pkg="rosbag" type="record" args="/arduino_sensor_reader/output_topic_imu -o ArduinoProcessedDataImu" />
+    <node name="raw_data_recorder" pkg="rosbag" type="record" args="/arduino_serial_port/output_topic -o {rosbag_output_dir}ArduinoRawData" />
+    <node name="processed_data_recorder_gps" pkg="rosbag" type="record" args="/arduino_sensor_reader/output_topic_gps -o {rosbag_output_dir}ArduinoProcessedDataGps" />
+    <node name="processed_data_recorder_imu" pkg="rosbag" type="record" args="/arduino_sensor_reader/output_topic_imu -o {rosbag_output_dir}ArduinoProcessedDataImu" />
 </launch>

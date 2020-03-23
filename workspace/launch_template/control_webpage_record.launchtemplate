@@ -1,4 +1,4 @@
-<launch>
+ <launch>
     <node name="control_webpage" pkg="control_webpage" type="control_webpage.py" cwd="node">
         <remap from="input_image_bottom_camera" to="/webcam_sensor_reader/output_topic" />
         <remap from="input_image_xtion_rgb" to="/xtion_reader/rgb_output_topic" />
@@ -49,5 +49,9 @@
         <remap from="input_right_serial_topic" to="/right_roboclaw_motor_controller_serial_port/output_topic" />
         <remap from="input_command_topic" to="/control_webpage/output_motor_control" />
     </node>
+
+    <node name="recorder" pkg="rosbag" type="record" args="/webcam_sensor_reader/output_topic /xtion_reader/rgb_output_topic /xtion_reader/depth_output_topic /rplidar_sensor_reader/output_topic /arduino_sensor_reader/output_topic_gps /arduino_sensor_reader/output_topic_imu /control_webpage/output_motor_control -o {rosbag_output_dir}all" />
+
+
 
 </launch>

@@ -134,8 +134,8 @@ void sigint_handler(int dummy)
     {
         unsigned char stop_motor_one_a[] = {128, 0, 0, 0x3b, 0x5A};
         unsigned char stop_motor_two_a[] = {128, 4, 0, 0xF7, 0x9E};
-        unsigned char stop_motor_one_b[] = {129, 0, 0, 0x0C, 0x6A};
-        unsigned char stop_motor_two_b[] = {129, 4, 0, 0xC0, 0xAE};
+        unsigned char stop_motor_one_b[] = {130, 0, 0, 0x55, 0x3A};
+        unsigned char stop_motor_two_b[] = {130, 4, 0, 0x99, 0xFE};
         write_data_to_serial_port(stop_motor_one_a, 5);
         write_data_to_serial_port(stop_motor_two_a, 5);
         write_data_to_serial_port(stop_motor_one_b, 5);
@@ -348,7 +348,7 @@ int main(int argc, char** argv)
                         ||
                     ((separator_valid) && (current_byte == separator)))
                 {
-                    serial_port_output_data.header.stamp = ros::Time::now(); //TODO: is this needed?
+                    serial_port_output_data.header.stamp = ros::Time::now(); 
                     publisher.publish(serial_port_output_data);
                     serial_port_output_data.data.clear();
                     message_started = false;

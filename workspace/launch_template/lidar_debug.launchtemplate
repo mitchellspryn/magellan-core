@@ -8,6 +8,6 @@
         <remap from="output_topic" to="/lidar_sensor_reader/output_topic" />
     </node>
 
-    <node name="raw_data_recorder" pkg="rosbag" type="record" args="/lidar_serial_port/output_topic -o LidarRawData" />
-    <node name="processed_data_recorder" pkg="rosbag" type="record" args="/lidar_sensor_reader/output_topic -o LidarProcessedData" />
+    <node name="raw_data_recorder" pkg="rosbag" type="record" args="/lidar_serial_port/output_topic -o {rosbag_output_dir}LidarRawData" />
+    <node name="processed_data_recorder" pkg="rosbag" type="record" args="/lidar_sensor_reader/output_topic -o {rosbag_output_dir}LidarProcessedData" />
 </launch>

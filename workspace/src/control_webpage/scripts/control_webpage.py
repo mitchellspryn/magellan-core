@@ -114,16 +114,20 @@ def process_lidar(data):
         output_image = np.zeros((image_size, image_size, 3), dtype=np.uint8)
 
         for i in range(0, len(data.ranges), 1):
-            this_point_angle = float(i) * data.angle_increment
-            this_point_range = max(min(data.ranges[i], data.range_max), data.range_min)
-            this_point_intensity_red = int(255.0 * (1.0 - (data.intensities[i] / 255)))
-            this_point_intensity_blue = int(255.0 * (data.intensities[i] / 255))
+            # There will be plenty of points that have zero intensity. 
+            # This represents either a reflection that didn't come back or an untrustable data point.
+            # Don't draw them to declutter the visual.
+            if (data.intensities[i] > 1):
+                this_point_angle = float(i) * data.angle_increment
+                this_point_range = max(min(data.ranges[i], data.range_max), data.range_min)
+                this_point_intensity_red = int(255.0 * (1.0 - (data.intensities[i] / 255)))
+                this_point_intensity_blue = int(255.0 * (data.intensities[i] / 255))
 
-            this_point_pixel_distance = (image_size / 2.0) * (this_point_range / data.range_max)
-            this_pixel_dx = math.cos(this_point_angle) * this_point_pixel_distance
-            this_pixel_dy = math.sin(this_point_angle) * this_point_pixel_distance
+                this_point_pixel_distance = (image_size / 2.0) * (this_point_range / data.range_max)
+                this_pixel_dx = math.cos(this_point_angle) * this_point_pixel_distance
+                this_pixel_dy = math.sin(this_point_angle) * this_point_pixel_distance
 
-            cv2.circle(output_image, (int(this_pixel_dx + (image_size / 2.0)), int(this_pixel_dy + (image_size / 2.0))), 3, (this_point_intensity_red, 0, this_point_intensity_blue), -1)
+                cv2.circle(output_image, (int(this_pixel_dx + (image_size / 2.0)), int(this_pixel_dy + (image_size / 2.0))), 3, (this_point_intensity_red, 0, this_point_intensity_blue), -1)
 
         cv2.circle(output_image, (int(image_size / 2), int(image_size / 2)), 5, (0, 255, 0), -1)
 

@@ -4,6 +4,7 @@ import argparse
 import colorama
 import os
 import shutil
+import uuid
 
 NODES_OF_INTEREST = ['ttyACM0', 'ttyACM1', 'ttyACM2', 'ttyACM3', 'video1', 'video2', 'ttyUSB0']
 
@@ -77,7 +78,10 @@ def get_rplidar_node(listings):
     for potential_node in [n for n in NODES_OF_INTEREST if 'USB' in n]:
         if potential_node in listings['udevadm_listings']:
             listing = listings['udevadm_listings'][potential_node]
-            if len(listing) >= 3 and 'Silicon_Labs_CP2102' in listing[2]:
+
+            # On the jetson, udevadm emits an extra line with "gps0" in it. 
+            if    (len(listing) >= 3 and 'Silicon_Labs_CP2102' in listing[2]) \
+               or (len(listing) >= 4 and 'Silicon_Labs_CP2102' in listing[3]):
                 return potential_node
 
     return None
@@ -102,6 +106,24 @@ def get_video_node(listings):
 
     return None
 
+def get_mass_storage_path():
+    # Attempt to write a text file.
+    # If it succeeds, then the drive is attached.
+    try:
+        text_to_write = str(uuid.uuid4())
+        with open('/media/usb-drive/build.txt', 'w') as f:
+            f.write(text_to_write)
+
+        with open('/media/usb-drive/build.txt', 'r') as f:
+            text = f.read()
+            if (text != text_to_write):
+                return None
+
+        os.remove('/media/usb-drive/build.txt')
+        return '/media/usb-drive/'
+    except:
+        return None
+
 def print_results(node_mappings):
     print(colorama.Fore.GREEN)
     print('*****************************')
@@ -116,7 +138,7 @@ def print_results(node_mappings):
             print(node_mappings[device_name], end='')
         else:
             print(colorama.Fore.RED, end='')
-            print('???')
+            print('???', end='')
         print(colorama.Style.RESET_ALL, end='')
         print()
 
@@ -159,8 +181,19 @@ def refresh_launch_files(node_mappings):
                 if 'rplidar' in node_mappings:
                     replaced = replaced.replace('{rplidar_device_node}', '/dev/{0}'.format(node_mappings['rplidar']))
 
-                if 'ground_camera_index' in node_mappings:
+                if 'ground_camera' in node_mappings:
                     replaced = replaced.replace('{ground_camera_index}', node_mappings['ground_camera'].replace('video', ''))
+
+                if 'mass_storage' in node_mappings:
+
+                    # If mass storage is present, use it for writing rosbags.
+                    # Otherwise, write to local storage.
+                    if node_mappings['mass_storage'] is not None:
+                        replacement_text = node_mappings['mass_storage']
+                    else:
+                        replacement_text = ''
+
+                    replaced = replaced.replace('{rosbag_output_dir}', replacement_text)
 
                 out_file.write(replaced)
 
@@ -178,6 +211,7 @@ def main():
     node_mappings['left_motor'] = get_motor_controller_node(listings, 130)
     node_mappings['right_motor'] = get_motor_controller_node(listings, 128)
     node_mappings['ground_camera'] = get_video_node(listings)
+    node_mappings['mass_storage'] = get_mass_storage_path()
 
     # TODO: list the xtion
 

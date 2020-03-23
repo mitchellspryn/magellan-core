@@ -16,7 +16,7 @@
         <remap from="debug_draw_image_topic" to="/cone_detector_node/debug_draw_image_topic" />
     </node>
 
-    <node name="webcam_recorder" pkg="rosbag" type="record" args="/webcam_node/output_topic -o WebcamImageFeed" />
-    <node name="detector_recorder" pkg="rosbag" type="record" args="/cone_detector_node/output_topic -o DetectorOutput" />
-    <node name="detector_debug_recorder" pkg="rosbag" type="record" args="/cone_detector_node/debug_original_image_topic /cone_detector_node/debug_predicted_image_topic /cone_detector_node/debug_processed_image_topic /cone_detector_node/debug_draw_image_topic -o DetectorDebugOutput" />
+    <node name="webcam_recorder" pkg="rosbag" type="record" args="/webcam_node/output_topic -o {rosbag_output_dir}WebcamImageFeed" />
+    <node name="detector_recorder" pkg="rosbag" type="record" args="/cone_detector_node/output_topic -o {rosbag_output_dir}DetectorOutput" />
+    <node name="detector_debug_recorder" pkg="rosbag" type="record" args="/cone_detector_node/debug_original_image_topic /cone_detector_node/debug_predicted_image_topic /cone_detector_node/debug_processed_image_topic /cone_detector_node/debug_draw_image_topic -o {rosbag_output_dir}DetectorDebugOutput" />
 </launch>

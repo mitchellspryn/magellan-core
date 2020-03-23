@@ -194,18 +194,23 @@
                 $scope.previousLeftMotor = 0;
                 $scope.previousRightMotor = 0;
 
-                $scope.gamepad = null;
+                var gamepads = navigator.getGamepads();
+                if (gamepads.length > 0 && gamepads[0]) {
+                    $scope.gamepadIndex = 0;
+                } else {
+                    $scope.gamepadIndex = -1;
+                }
 
                 window.addEventListener("gamepadconnected", function(e) {
                     console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
                         e.gamepad.index, e.gamepad.id,
                         e.gamepad.buttons.length, e.gamepad.axes.length);
-                    $scope.gamepad = navigator.getGamepads()[e.gamepad.index];
+                    $scope.gamepadIndex = e.gamepad.index;
                 });
 
                 window.addEventListener("gamepaddisconnected", function(e) {
                     console.log("Gamepad disconnected.");
-                    $scope.gamepad = null;
+                    $scope.gamepadIndex = -1;
                 });
 
                 $scope.roundFloatForDisplay = function(val) {
@@ -288,7 +293,11 @@
                 }, 100);
 
                 $interval(function() {
-                    if ($scope.gamepad != null) {
+                    if ($scope.gamepadIndex >= 0) {
+                        $scope.gamepad = navigator.getGamepads()[$scope.gamepadIndex];
+                        if ($scope.gamepad == null) {
+                            return;
+                        }
                         // Right stick is 0,1; left stick is 3,4
                         // Up down is inverted
                         var leftRight = $scope.gamepad.axes[3];
@@ -317,7 +326,7 @@
                         var pivotMultiplier = Math.max(0, 1.0 - (4.0 * Math.abs(upDown)));
                         var driveMultiplier = 1.0 - pivotMultiplier;
 
-                        var max_speed = 30;
+                        var max_speed = 50;
                         $scope.leftMotor = (max_speed * ((pivotMultiplier * pivotLeft) + (driveMultiplier * driveLeft))).toFixed(2);
                         $scope.rightMotor = (max_speed * ((pivotMultiplier * pivotRight) + (driveMultiplier * driveRight))).toFixed(2);
 

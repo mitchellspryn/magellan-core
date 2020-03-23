@@ -175,7 +175,7 @@ def sig_handler(sig, frame):
     raise KeyboardInterrupt('ctrl+c pressed')
 
 def parse_args():
-    filtered_args = rospy.myargv(sys.argv)
+    filtered_args = rospy.myarg(sys.argv)
 
     parser = argparse.ArgumentParser(description='Interface to mock hardware components to simulator.')
 

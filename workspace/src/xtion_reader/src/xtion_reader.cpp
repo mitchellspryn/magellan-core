@@ -218,7 +218,11 @@ int main(int argc, char** argv)
 
                 opened = true;
 
+                ros::Time time = ros::Time::now();
                 videoMsg->header = depthMsg->header;
+
+                videoMsg->header.stamp = time;
+                depthMsg->header.stamp = time;
 
                 depth_pub.publish(depthMsg);
                 rgb_pub.publish(videoMsg);

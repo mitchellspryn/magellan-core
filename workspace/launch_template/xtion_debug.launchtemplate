@@ -4,6 +4,6 @@
         <remap from="depth_output_topic" to="/xtion_reader/depth_output_topic" />
     </node>
 
-    <node name="rgb_raw_data_recorder" pkg="rosbag" type="record" args="/xtion_reader/rgb_output_topic -o RgbData" />
-    <node name="depth_raw_data_recorder" pkg="rosbag" type="record" args="/xtion_reader/rgb_output_topic -o DepthData" />
+    <node name="rgb_raw_data_recorder" pkg="rosbag" type="record" args="/xtion_reader/rgb_output_topic -o {rosbag_output_dir}RgbData" />
+    <node name="depth_raw_data_recorder" pkg="rosbag" type="record" args="/xtion_reader/rgb_output_topic -o {rosbag_output_dir}DepthData" />
 </launch>
