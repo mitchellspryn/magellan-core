@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "contracts/drive_input_manager_control_point"
+#include "definitions.hpp"
 
 namespace magellan
 {
@@ -16,11 +17,11 @@ namespace magellan
             public:
                 DriveInputManager(std::vector<DriveInputControlPoint> control_points);
 
-                void add_drive_message(magellan_messages::MsgMagellanDrive &msg);
-                void recompute(const GlobalPose const &global_pose);
-
                 const Eigen::Matrix<real_t, state_dimension, 1>& get_control_matrix() const;
-                const Eigen::Matrix<real_t, state_dimension, state_dimension> get_covariance_matrix() const;
+                const Eigen::Matrix<real_t, state_dimension, state_dimension>& get_covariance_matrix() const;
+                bool data_ready();
+                void add_drive_message(magellan_messages::MsgMagellanDrive &msg);
+                void recompute(const GlobalPose &global_pose);
 
             private:
                 constexpr int control_dimension = 2;

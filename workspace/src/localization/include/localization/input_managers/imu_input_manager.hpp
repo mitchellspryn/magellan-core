@@ -7,8 +7,8 @@
 
 #include <magellan_messages/MsgMagellanImu.h>
 
-#include "constants.hpp"
 #include "contracts/global_pose.hpp"
+#include "definitions.hpp"
 
 namespace magellan
 {
@@ -18,17 +18,14 @@ namespace magellan
         {
             public:
                 ImuInputManager(Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> &measurement_covariance);
-                ~ImuInputManager();
-
-                void add_imu_message(magellan_messages::MsgMagellanImu &msg);
-                void recompute(const GlobalPose const &global_pose);
-                bool data_ready();
-
                 const vector3r_t& get_global_acceleration() const;
                 const quaternionr_t& get_global_heading() const;
                 const quaternionr_t& get_global_angular_velocity() const;
+                const Eigen::Matrix<real_t, state_dimension, state_dimension>& get_measurement_covariance() const;
+                bool data_ready();
 
-                const Eigen::Matrix<real_t, state_dimension, state_dimension> get_measurement_covariance() const;
+                void add_imu_message(magellan_messages::MsgMagellanImu &msg);
+                void recompute(const GlobalPose &global_pose);
 
             private:
                 vector3r_t last_global_acceleration;

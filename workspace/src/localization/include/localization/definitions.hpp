@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_HPP
-#define CONSTANTS_HPP
+#ifndef DEFINITIONS_HPP
+#define DEFINITIONS_HPP
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
@@ -10,7 +10,7 @@ namespace magellan
     {
         constexpr int state_dimension = 17;
         typedef float real_t;
-        typedef Eigen::Matrix<float, 3, 1> vector3r_t;
+        typedef Eigen::Matrix<real_t, 3, 1> vector3r_t;
         typedef Eigen::Quaternionf quaternionr_t;
     }
 }

@@ -4,6 +4,8 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
 
+#include "definitions.hpp"
+
 namespace magellan
 {
     namespace localization
@@ -11,17 +13,13 @@ namespace magellan
         class GlobalPose
         {
             public:
-                Eigen::Vector3f GlobalPosition;
-                Eigen::Quaternionf GlobalRotation;
+                vector3r_t GlobalPosition;
+                quaternionr_t GlobalRotation;
 
-                Eigen::Matrix<float, 3, 3> GlobalPositionCovariance;
-                Eigen::Matrix<float, 4, 4> GlobalRotationCovariance;
+                Eigen::Matrix<real_t, 3, 3> GlobalPositionCovariance;
+                Eigen::Matrix<real_t, 4, 4> GlobalRotationCovariance;
 
                 GlobalPose()
-                {
-                    this->GlobalPostion = Eigen::Vector3f::Zero();
-                    this->GlobalRotation = Eigen::Quaternionf(1, 0, 0, 0);
-                }
         };
     }
 }

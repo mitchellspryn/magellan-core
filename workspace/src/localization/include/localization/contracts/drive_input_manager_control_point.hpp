@@ -4,7 +4,7 @@
 #include <eigen3/Eigen/Dense>
 #include <utility>
 
-#include "constants.hpp"
+#include "definitions.hpp"
 
 namespace magellan
 {
@@ -17,9 +17,9 @@ namespace magellan
                         Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> control_matrix, 
                         Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> covariance_matrix);
 
-                void get_drive_params(std::pair<real_t, real_t> &drive_params);
-                void get_control_matrix(Eigen::Matrix<real_t, state_dimension, 1> &control_matrix);
-                void get_covariance_matrix(Eigen::Matrix<real_t, state_dimension, state_dimension> &covariance_matrix);
+                const std::pair<real_t, real_t>& get_drive_params() const;
+                const Eigen::Matrix<real_t, state_dimension, 1>& get_control_matrix() const;
+                const Eigen::Matrix<real_t, state_dimension, state_dimension>& get_covariance_matrix() const;
 
             private:
                 std::pair<real_t, real_t> drive_params;
