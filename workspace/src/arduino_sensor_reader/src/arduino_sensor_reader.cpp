@@ -177,18 +177,8 @@ bool process_gps_packet(sensor_msgs::NavSatFix &gps_message, const uint8_t* data
         return false;
     }
 
-    gps_message.longitude = gps_nmea_to_decimal(split_message[2]);
-    gps_message.latitude = gps_nmea_to_decimal(split_message[4]);
-
-    if (split_message[3][0] == 'S')
-    {
-        gps_message.latitude *= -1; 
-    }
-
-    if (split_message[5][0] == 'W')
-    {
-        gps_message.longitude *= -1;
-    }
+    gps_message.latitude = gps_nmea_to_decimal(split_message[2]);
+    gps_message.longitude = gps_nmea_to_decimal(split_message[4]);
 
     // TODO: use sea level or ellipsoid?
     gps_message.altitude = std::stof(split_message[9]);
