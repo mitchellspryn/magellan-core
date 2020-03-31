@@ -1,3 +1,6 @@
+#ifndef GLOBAL_STATE_HPP
+#define GLOBAL_STATE_HPP
+
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
 
@@ -22,3 +25,5 @@ namespace magellan
         };
     }
 }
+
+#endif

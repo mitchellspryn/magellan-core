@@ -1,3 +1,6 @@
+#ifndef FILTER_HPP
+#define FILTER_HPP
+
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
 #include <ros/ros.h>
@@ -24,7 +27,8 @@ namespace magellan
                 virtual void update_global_pose(GlobalPose& pose, ros::Time start_time, ros::Time end_time) = 0;
 
                 virtual void register_debug_publishers(ros::NodeHandle &nh);
-        }
+        };
     }
 }
 
+#endif

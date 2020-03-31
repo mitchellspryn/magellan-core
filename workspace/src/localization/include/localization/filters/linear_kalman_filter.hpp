@@ -1,12 +1,24 @@
+#ifndef LINEAR_KALMAN_FILTER_HPP
+#define LINEAR_KALMAN_FILTER_HPP
+
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <memory>
 #include <ros/ros.h>
-#include <string>
-#include <magellan_messages/MsgMagellanImu.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <string>
+#include <vector>
 
-#include "global_pose.hpp"
+#include <magellan_messages/MsgMagellanImu.h>
+#include <magellan_messages/MsgMagellanDrive.h>
+
+#include "constants.hpp"
+#include "contracts/global_pose.hpp"
+#include "contracts/drive_input_control_point.hpp"
 #include "filter.hpp"
+#include "input_managers/drive_input_manager.hpp"
+#include "input_managers/gps_input_manager.hpp"
+#include "input_managers/imu_input_manager.hpp"
 
 namespace magellan
 {
@@ -15,10 +27,7 @@ namespace magellan
         class LinearKalmanFilter
         {
             public:
-                LinearKalmanFilter(
-                        std::string process_covariance_matrix_path,
-                        std::string measurement_covariance_matrix_path,
-                        std::string control_matrix_path);
+                LinearKalmanFilter(std::string parameter_path);
 
                 void accept_imu_message(magellan_messages::MsgMagellanImu &msg);
                 void accept_gps_message(sensor_msgs::NavSatFix &msg);
@@ -28,24 +37,27 @@ namespace magellan
 
                 void register_debug_publishers(ros::NodeHandle nh);
 
-                static constexpr int state_dim = 17;
-
             private:
-                static constexpr int control_dim = 7;
+                // Runtime variables
+                Eigen::Matrix<real_t, state_dimension, state_dimension> state;
+                Eigen::Matrix<float, state_dimension, 1> state_estimate;
 
-                Eigen::Matrix<float, state_dim, 1> state;
-                Eigen::Matrix<float, state_dim, 1> state_estimate;
+                Eigen::Matrix<float, state_dimension, state_dimension> evolution_matrix; // A
+                Eigen::Matrix<float, state_dimension, 2> control_matrix; // B
+                Eigen::Matrix<float, state_dimension, state_dimension> error_covariance; // P
 
-                Eigen::Matrix<float, state_dim, state_dim> evolution_matrix; // A
-                Eigen::Matrix<float, state_dim, control_dim> control_matrix; // B
-                Eigen::Matrix<float, state_dim, state_dim> error_covariance; // P
+                Eigen::Matrix<float, state_dimension, state_dimension> process_covariance_matrix; // Q
+                Eigen::Matrix<float, state_dimension, state_dimension> measurement_covariance_matrix; // R
+                Eigen::Matrix<float, state_dimension, state_dimension> kalman_gain; // K
+                Eigen::Matrix<float, state_dimension, 1> measurement;
 
-                Eigen::Matrix<float, state_dim, state_dim> process_covariance_matrix; // Q
-                Eigen::Matrix<float, state_dim, state_dim> measurement_covariance_matrix; // R
-                Eigen::Matrix<float, state_dim, state_dim> kalman_gain; // K
-                Eigen::Matrix<float, state_dim, 1> measurement;
+                std::unique_ptr<DriveInputManager> drive_input_manager;
+                std::unique_ptr<GpsInputManager> gps_input_manager;
+                std::unique_ptr<ImuInputManager> imu_input_manager;
 
-
-        }
+                void initialize_parameters_from_file(std::string parameter_path); 
+        };
     }
 }
+
+#endif
