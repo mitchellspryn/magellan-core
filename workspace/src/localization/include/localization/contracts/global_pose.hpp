@@ -13,13 +13,13 @@ namespace magellan
         class GlobalPose
         {
             public:
-                vector3r_t GlobalPosition;
-                quaternionr_t GlobalRotation;
+                vector3r_t global_position;
+                quaternionr_t global_rotation;
 
-                Eigen::Matrix<real_t, 3, 3> GlobalPositionCovariance;
-                Eigen::Matrix<real_t, 4, 4> GlobalRotationCovariance;
+                Eigen::Matrix<real_t, 3, 3> global_position_covariance;
+                Eigen::Matrix<real_t, 4, 4> global_rotation_covariance;
 
-                GlobalPose()
+                GlobalPose();
         };
     }
 }

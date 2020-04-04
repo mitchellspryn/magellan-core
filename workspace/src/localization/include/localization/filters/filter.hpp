@@ -23,10 +23,14 @@ namespace magellan
                 virtual void accept_gps_message(sensor_msgs::NavSatFix &msg) = {};
                 virtual void accept_drive_message(magellan_messages::MsgMagellanDrive &msg) = {};
 
-                virtual void is_initialized() = 0;
-                virtual void update_global_pose(GlobalPose& pose, ros::Time start_time, ros::Time end_time) = 0;
+                virtual void initialize_global_pose() = 0;
+                virtual void update_global_pose(ros::Duration dt) = 0;
+                virtual const GlobalPose& GetGlobalPose() const {return this->global_pose;}
 
                 virtual void register_debug_publishers(ros::NodeHandle &nh);
+
+            protected:
+                GlobalPose global_pose;
         };
     }
 }

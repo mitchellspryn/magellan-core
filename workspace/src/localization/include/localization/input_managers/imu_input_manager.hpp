@@ -22,10 +22,12 @@ namespace magellan
                 const quaternionr_t& get_global_heading() const;
                 const quaternionr_t& get_global_angular_velocity() const;
                 const Eigen::Matrix<real_t, state_dimension, state_dimension>& get_measurement_covariance() const;
-                bool data_ready();
+                int num_received_messages();
 
                 void add_imu_message(magellan_messages::MsgMagellanImu &msg);
                 void recompute(const GlobalPose &global_pose);
+
+                
 
             private:
                 vector3r_t last_global_acceleration;

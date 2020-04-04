@@ -24,8 +24,6 @@ namespace magellan
                 void add_gps_message(sensor_msgs::NavSatFix &msg);
                 void recompute(const GlobalPose &global_pose);
 
-
-
             private:
                 vector3r_t last_global_position;
                 Eigen::Matrix<real_t, state_dimension, state_dimension> covariance_matrix;
