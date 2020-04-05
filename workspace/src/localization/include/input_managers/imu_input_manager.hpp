@@ -27,8 +27,6 @@ namespace magellan
                 void add_imu_message(magellan_messages::MsgMagellanImu &msg);
                 void recompute(const GlobalPose &global_pose);
 
-                
-
             private:
                 vector3r_t last_global_acceleration;
                 quaternionr_t last_global_heading;

@@ -25,7 +25,7 @@ namespace magellan
                 std::pair<real_t, real_t> drive_params;
                 Eigen::Matrix<real_t, state_dimension, 1> control_matrix;
                 Eigen::Matrix<real_t, state_dimension, state_dimension> covariance_matrix;
-        }
+        };
     }
 }
 

@@ -1,4 +1,4 @@
-#include "contracts/global_pose.cpp"
+#include "contracts/global_pose.hpp"
 
 namespace magellan
 {
@@ -12,6 +12,5 @@ namespace magellan
             this->global_rotation_covariance.setZero();
         }
     }
-
 }
 

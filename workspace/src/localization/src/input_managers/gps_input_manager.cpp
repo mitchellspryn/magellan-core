@@ -14,7 +14,7 @@ namespace magellan
             return this->last_global_position;
         }
 
-        const Eigen::Matrix<real_t, state_dimension, state_dimension get_measurement_covariance>GpsInputManager::get_measurement_covariance() const
+        const Eigen::Matrix<real_t, state_dimension, state_dimension>GpsInputManager::get_measurement_covariance() const
         {
             return this->covariance_matrix;
         }

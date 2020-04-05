@@ -15,9 +15,9 @@
 #include <magellan_messages/MsgMagellanImu.h>
 #include <magellan_messages/MsgMagellanDrive.h>
 
-#include "constants.hpp"
 #include "contracts/global_pose.hpp"
-#include "contracts/drive_input_control_point.hpp"
+#include "contracts/drive_input_manager_control_point.hpp"
+#include "definitions.hpp"
 #include "filter.hpp"
 #include "input_managers/drive_input_manager.hpp"
 #include "input_managers/gps_input_manager.hpp"
@@ -27,7 +27,7 @@ namespace magellan
 {
     namespace localization
     {
-        class LinearKalmanFilter
+        class LinearKalmanFilter : public Filter
         {
             public:
                 LinearKalmanFilter(std::string parameter_path);
@@ -52,7 +52,8 @@ namespace magellan
                 void initialize_internal_state();
 
                 void initialize_parameters_from_file(std::string parameter_path); 
-                Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> read_matrix_from_file(std::fstream stream);
+                DriveInputManagerControlPoint read_drive_control_point_from_file(std::ifstream &stream, std::string expected_matrix_name);
+                Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> read_matrix_from_file(std::ifstream &stream, std::string expected_matrix_name);
         };
     }
 }

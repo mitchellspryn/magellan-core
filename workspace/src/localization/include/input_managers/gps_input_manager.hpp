@@ -27,7 +27,7 @@ namespace magellan
             private:
                 vector3r_t last_global_position;
                 Eigen::Matrix<real_t, state_dimension, state_dimension> covariance_matrix;
-        }
+        };
     }
 }
 

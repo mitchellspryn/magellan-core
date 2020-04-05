@@ -4,7 +4,7 @@ namespace magellan
 {
     namespace localization
     {
-        DriveInputManager::DriveInputManager(std::vector<DriveInputControlPoint> control_points)
+        DriveInputManager::DriveInputManager(std::vector<DriveInputManagerControlPoint> control_points)
         {
 
         }

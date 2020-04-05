@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(localization)
 
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++14) # for make_unique
 
 find_package(catkin REQUIRED COMPONENTS
     cv_bridge
@@ -28,9 +28,12 @@ include_directories(
 
 add_executable(${PROJECT_NAME}_node 
     src/node.cpp 
-    src/filter/LinearKalmanFilter.cpp 
-    src/sensor_utils/gps_sensor_utils.cpp
-    src/sensor_utils/imu_sensor_utils.cpp)
+    src/contracts/drive_input_manager_control_point.cpp
+    src/contracts/global_pose.cpp
+    src/filters/linear_kalman_filter.cpp 
+    src/input_managers/drive_input_manager.cpp
+    src/input_managers/gps_input_manager.cpp
+    src/input_managers/imu_input_manager.cpp)
 
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 target_link_libraries(${PROJECT_NAME}_node

@@ -12,17 +12,17 @@ namespace magellan
 
         }
 
-        const std::pair<real_t, real_t>& ml::DriveInputManager::get_drive_params() const
+        const std::pair<real_t, real_t>& DriveInputManagerControlPoint::get_drive_params() const
         {
             return this->drive_params;
         }
 
-        const Eigen::Matrix<real_t, state_dimension, 1>& ml::DriveInputManager::get_control_matrix() const
+        const Eigen::Matrix<real_t, state_dimension, 1>& DriveInputManagerControlPoint::get_control_matrix() const
         {
             return this->control_matrix;
         }
 
-        const Eigen::Matrix<real_t, state_dimension, state_dimension>& ml::DriveInputManager::get_covariance_matrix() const
+        const Eigen::Matrix<real_t, state_dimension, state_dimension>& DriveInputManagerControlPoint::get_covariance_matrix() const
         {
             return this->covariance_matrix;
         }

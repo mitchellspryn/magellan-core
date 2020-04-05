@@ -15,7 +15,7 @@ namespace magellan
             this->imu_input_manager->add_imu_message(msg);
         }
 
-        void LinearKalmanFilter::accept_gps_message(sensor_msgs::NavSatfix &msg)
+        void LinearKalmanFilter::accept_gps_message(sensor_msgs::NavSatFix &msg)
         {
             this->gps_input_manager->add_gps_message(msg);
         }
@@ -49,8 +49,8 @@ namespace magellan
                 usleep(1000);
             }
 
-            this->imu_input_manager->recompute();
-            this->global_pose->global_rotation = this->imu_input_manager->get_global_heading();
+            //this->imu_input_manager->recompute();
+            this->global_pose.global_rotation = this->imu_input_manager->get_global_heading();
 
             // TODO: tune the initialization of the covariances.
             real_t position_sigma = 0.01;
@@ -58,12 +58,12 @@ namespace magellan
 
             for (int i = 0; i < 3; i++)
             {
-                this->global_pose->global_position_covariance(i,i) = position_sigma;
+                this->global_pose.global_position_covariance(i,i) = position_sigma;
             }
 
             for (int i = 0; i < 4; i++)
             {
-                this->global_pose->global_rotation_covariance(i,i) = rotation_sigma;
+                this->global_pose.global_rotation_covariance(i,i) = rotation_sigma;
             }
 
             for (int i = 0; i < state_dimension; i++)
@@ -71,10 +71,10 @@ namespace magellan
                 this->state(i) = 0;
             }
 
-            this->state(9) = this->global_pose->global_rotation.w();
-            this->state(10) = this->global_pose->global_rotation.x();
-            this->state(11) = this->global_pose->global_rotation.y();
-            this->state(12) = this->global_pose->global_rotation.z();
+            this->state(9) = this->global_pose.global_rotation.w();
+            this->state(10) = this->global_pose.global_rotation.x();
+            this->state(11) = this->global_pose.global_rotation.y();
+            this->state(12) = this->global_pose.global_rotation.z();
 
             this->state_covariance.setZero();
 
@@ -98,28 +98,28 @@ namespace magellan
             this->imu_input_manager = std::make_unique<ImuInputManager>(this->read_matrix_from_file(input_stream, "imu_covariance"));
             this->gps_input_manager = std::make_unique<GpsInputManager>(this->read_matrix_from_file(input_stream, "gps_covariance"));
 
-            std::vector<DriveInputControlPoint> drive_control_points;
+            std::vector<DriveInputManagerControlPoint> drive_control_points;
             drive_control_points.push_back(this->read_drive_control_point_from_file(input_stream, "forward_control_point"));
             drive_control_points.push_back(this->read_drive_control_point_from_file(input_stream, "turn_control_point"));
 
             this->drive_input_manager = std::make_unique<DriveInputManager>(drive_control_points);
         }
 
-        DriveInputControlPoint LinearKalmanFilter::read_drive_control_point_from_file(std::ifstream &stream, std::string &expected_matrix_name)
+        DriveInputManagerControlPoint LinearKalmanFilter::read_drive_control_point_from_file(std::ifstream &stream, std::string expected_point_name)
         {
             std::string line;
             std::getline(stream, line);
 
-            if (line != expected_matrix_name)
+            if (line != expected_point_name)
             {
-                throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_matrix_name);
+                throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_point_name);
             }
 
             real_t left_control;
             real_t right_control;
             std::getline(stream, line);
-            istringstream control_stream(line);
-            if (!(line >> left_control >> right_control))
+            std::istringstream control_stream(line);
+            if (!(control_stream >> left_control >> right_control))
             {
                 throw std::runtime_error("Unexpected line. Expected two floats for motor control, got " + line + ".");
             }
@@ -127,7 +127,7 @@ namespace magellan
             Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> control_matrix = this->read_matrix_from_file(stream, "");
             Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> covariance_matrix = this->read_matrix_from_file(stream, "");
 
-            DriveInputControlPoint output(
+            DriveInputManagerControlPoint output(
                     std::make_pair(left_control, right_control),
                     control_matrix, 
                     covariance_matrix);
@@ -135,7 +135,7 @@ namespace magellan
             return output;
         }
 
-        Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> LinearKalmanFilter::read_matrix_from_file(std::ifstream &stream, std::string &expected_matrix_name)
+        Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> LinearKalmanFilter::read_matrix_from_file(std::ifstream &stream, std::string expected_matrix_name)
         {
             std::string line;
 
@@ -152,7 +152,7 @@ namespace magellan
             int width;
             int height;
             std::getline(stream, line);
-            istringstream matrix_size_line(line);
+            std::istringstream matrix_size_line(line);
 
             if (!(matrix_size_line >> height >> width))
             {
@@ -165,7 +165,7 @@ namespace magellan
             for (int y = 0; y < height; y++)
             {
                 std::getline(stream, line);
-                istringstream matrix_data_line(line);
+                std::istringstream matrix_data_line(line);
                 real_t next_value = -1;
 
                 for (int x = 0; x < width; x++)
@@ -175,7 +175,7 @@ namespace magellan
                         throw std::runtime_error("Malformed row. Not enough numbers in row: " + line);
                     }
 
-                    matrix(y,x) = next_value;
+                    output_matrix(y,x) = next_value;
                 }
 
                 if (matrix_data_line.rdbuf()->in_avail() > 0)
@@ -184,7 +184,7 @@ namespace magellan
                 }
             }
 
-            return matrix;
+            return output_matrix;
         }
     }
 }

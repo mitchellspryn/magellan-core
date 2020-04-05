@@ -6,6 +6,7 @@
 
 #include "definitions.hpp"
 
+
 namespace magellan
 {
     namespace localization
