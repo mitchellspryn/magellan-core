@@ -31,5 +31,8 @@ else
         python3 utility-scripts/detect_hardware.py --generate-launch-files --strict
     fi
 
+    # Regenerate the YCM compile flags database for cpp files
+    python3 utility-scripts/generate_ycm_database.py
+
     source devel/setup.bash
 fi
