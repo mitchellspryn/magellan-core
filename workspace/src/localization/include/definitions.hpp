@@ -8,7 +8,7 @@ namespace magellan
 {
     namespace localization
     {
-        constexpr int state_dimension = 17;
+        constexpr int state_dimension = 15;
         typedef float real_t;
         typedef Eigen::Matrix<real_t, 3, 1> vector3r_t;
         typedef Eigen::Quaternionf quaternionr_t;

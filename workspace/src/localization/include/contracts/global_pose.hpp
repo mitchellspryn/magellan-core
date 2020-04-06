@@ -15,10 +15,16 @@ namespace magellan
         {
             public:
                 vector3r_t global_position;
-                quaternionr_t global_rotation;
+                vector3r_t global_rotation;
+                vector3r_t global_acceleration;
+                vector3r_t global_velocity;
+                vector3r_t global_angular_velocity;
 
                 Eigen::Matrix<real_t, 3, 3> global_position_covariance;
-                Eigen::Matrix<real_t, 4, 4> global_rotation_covariance;
+                Eigen::Matrix<real_t, 3, 3> global_rotation_covariance;
+                Eigen::Matrix<real_t, 3, 3> global_acceleration_covariance;
+                Eigen::Matrix<real_t, 3, 3> global_velocity_covariance;
+                Eigen::Matrix<real_t, 3, 3> global_angular_velocity_covariance;
 
                 GlobalPose();
         };

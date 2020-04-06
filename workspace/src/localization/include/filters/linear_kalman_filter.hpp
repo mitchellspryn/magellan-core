@@ -51,6 +51,16 @@ namespace magellan
 
                 void initialize_internal_state();
 
+                Eigen::Matrix<real_t, 3, 1> rotate_vector(
+                        const Eigen::Matrix<real_t, 3, 3> &rotation_matrix,
+                        const Eigen::Matrix<real_t, 3, 3> &original_vector);
+
+                Eigen::Matrix<real_t, 3, 3> rotate_covariance_matrix(
+                        const Eigen::Matrix<real_t, 3, 3> &rotation_matrix, 
+                        const Eigen::Matrix<real_t, 3, 3> &original_covariance);
+
+                Eigen::Matrix<real_t, 3, 3> roll_pitch_yaw_to_rotation_matrix(const vector3r_t &rpy_vec);
+
                 void initialize_parameters_from_file(std::string parameter_path); 
                 DriveInputManagerControlPoint read_drive_control_point_from_file(std::ifstream &stream, std::string expected_matrix_name);
                 Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> read_matrix_from_file(std::ifstream &stream, std::string expected_matrix_name);

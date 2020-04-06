@@ -4,22 +4,22 @@ namespace magellan
 {
     namespace localization
     {
-        ImuInputManager::ImuInputManager(Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic &measurement_covariance)
+        ImuInputManager::ImuInputManager(Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> &measurement_covariance)
         {
 
         }
 
-        const vector3r_t& ImuInputManager::get_global_acceleration() const
+        const vector3r_t& ImuInputManager::get_local_acceleration() const
         {
-            return this->last_global_acceleration;
+            return this->last_local_acceleration;
         }
 
-        const quaternionr_t& ImuInputManager::get_global_heading() const
+        const quaternionr_t& ImuInputManager::get_global_rotation() const
         {
             return this->last_global_heading;
         }
 
-        const quaternionr_t& ImuInputManager::get_global_angular_velocity() const
+        const quaternionr_t& ImuInputManager::get_local_angular_velocity() const
         {
             return this->last_global_angular_velocity;
         }
@@ -29,9 +29,9 @@ namespace magellan
             return this->covariance_matrix;
         }
 
-        bool ImuInputManager::data_ready()
+        int ImuInputManager::num_unread_messages()
         {
-            
+
         }
 
         void ImuInputManager::add_imu_message(magellan_messages::MsgMagellanImu &msg)
