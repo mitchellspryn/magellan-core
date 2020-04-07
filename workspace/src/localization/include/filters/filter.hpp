@@ -17,7 +17,8 @@ namespace magellan
         class Filter
         {
             public:
-                virtual ~Filter() {};
+                Filter() {}
+                virtual ~Filter() {}
 
                 virtual void accept_imu_message(magellan_messages::MsgMagellanImu &msg) {};
                 virtual void accept_gps_message(sensor_msgs::NavSatFix &msg) {};
@@ -27,7 +28,7 @@ namespace magellan
                 virtual void update_global_pose(ros::Duration dt) = 0;
                 virtual const GlobalPose& GetGlobalPose() const { return this->global_pose; }
 
-                virtual void register_debug_publishers(ros::NodeHandle &nh);
+                virtual void register_debug_publishers(ros::NodeHandle &nh) {}
 
             protected:
                 GlobalPose global_pose;

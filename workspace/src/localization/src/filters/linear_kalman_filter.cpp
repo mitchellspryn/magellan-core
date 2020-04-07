@@ -10,17 +10,17 @@ namespace magellan
             this->initialize_internal_state();
         }
 
-        void LinearKalmanFilter::accept_imu_message(magellan_messages::MsgMagellanImu &msg)
+        void LinearKalmanFilter::accept_imu_message(const magellan_messages::MsgMagellanImu::ConstPtr &msg)
         {
             this->imu_input_manager->add_imu_message(msg);
         }
 
-        void LinearKalmanFilter::accept_gps_message(sensor_msgs::NavSatFix &msg)
+        void LinearKalmanFilter::accept_gps_message(const sensor_msgs::NavSatFix::ConstPtr &msg)
         {
             this->gps_input_manager->add_gps_message(msg);
         }
 
-        void LinearKalmanFilter::accept_drive_message(magellan_messages::MsgMagellanDrive &msg)
+        void LinearKalmanFilter::accept_drive_message(const magellan_messages::MsgMagellanDrive::ConstPtr &msg)
         {
             this->drive_input_manager->add_drive_message(msg);
         }
@@ -49,7 +49,7 @@ namespace magellan
             // TODO: What is the performance overhead of assigning all of these here?
             Eigen::Matrix<real_t, state_dimension, state_dimension> A = Eigen::Matrix<real_t, state_dimension, state_dimension>::Identity();
             Eigen::Matrix<real_t, state_dimension, 1> Bx = this->drive_input_manager->get_control_matrix();
-            Eigen::Matrix<real_t, state_dimension, state_dimension> Q = this->rotate_covariance_matrix(local_to_global_mat, this->drive_input_manager->get_covariance_matrix());
+            Eigen::Matrix<real_t, state_dimension, state_dimension> Q = Eigen::Matrix<real_t, state_dimension, state_dimension>::Identity() * 0.001;
             Eigen::Matrix<real_t, state_dimension, state_dimension> R = Eigen::Matrix<real_t, state_dimension, state_dimension>::Zero();
             Eigen::Matrix<real_t, state_dimension, state_dimension> H = Eigen::Matrix<real_t, state_dimension, state_dimension>::Zero();
             Eigen::Matrix<real_t, state_dimension, 1> X_predicted = Eigen::Matrix<real_t, state_dimension, 1>::Zero();
@@ -96,6 +96,17 @@ namespace magellan
                 A(i+9, i+12) = dt;
             }
 
+            Eigen::Matrix<real_t, state_dimension, state_dimension> local_process_covariance = this->drive_input_manager->get_covariance_matrix();
+
+            Eigen::Matrix<real_t, 3, 3> global_velocity_process_covariance = this->rotate_covariance_matrix(local_to_global_mat, local_process_covariance.block<3, 3>(3, 3));
+            Eigen::Matrix<real_t, 3, 3> global_angular_velocity_process_covariance = this->rotate_covariance_matrix(local_to_global_mat, local_process_covariance.block<3, 3>(12, 12));
+
+            Q.block<3, 3>(0, 0) = global_velocity_process_covariance * dt;
+            Q.block<3, 3>(3, 3) = global_velocity_process_covariance;
+
+            Q.block<3, 3>(9, 9) = global_angular_velocity_process_covariance * dt;
+            Q.block<3, 3>(12, 12) = global_angular_velocity_process_covariance;
+
             // Perform an iteration of kalman
             X_predicted = (A*this->state) + Bx;
             P_predicted = (A*this->state_covariance*(A.transpose())) + Q;
@@ -120,7 +131,7 @@ namespace magellan
             this->global_pose.global_angular_velocity_covariance = this->state_covariance.block<3, 3>(12, 12);
         }
 
-        void LinearKalmanFilter::register_debug_publishers(ros::NodeHandle nh)
+        void LinearKalmanFilter::register_debug_publishers(ros::NodeHandle &nh)
         {
             
         }
@@ -169,7 +180,7 @@ namespace magellan
 
         Eigen::Matrix<real_t, 3, 1> LinearKalmanFilter::rotate_vector(
                 const Eigen::Matrix<real_t, 3, 3> &rotation_matrix,
-                const Eigen::Matrix<real_t, 3, 3> &original_vector)
+                const Eigen::Matrix<real_t, 3, 1> &original_vector)
         {
             return rotation_matrix * original_vector;
         }
@@ -196,44 +207,18 @@ namespace magellan
         {
             std::ifstream input_stream(parameter_path);
 
-            this->imu_input_manager = std::make_unique<ImuInputManager>(this->read_matrix_from_file(input_stream, "imu_covariance"));
+            this->imu_input_manager = std::make_unique<ImuInputManager>(std::move(this->read_matrix_from_file(input_stream, "imu_local_acceleration_covariance")),
+                                                                        std::move(this->read_matrix_from_file(input_stream, "imu_global_heading_covariance")),
+                                                                        std::move(this->read_matrix_from_file(input_stream, "imu_local_angular_velocity_covariance")));
+
             this->gps_input_manager = std::make_unique<GpsInputManager>(this->read_matrix_from_file(input_stream, "gps_covariance"));
 
-            std::vector<DriveInputManagerControlPoint> drive_control_points;
-            drive_control_points.push_back(this->read_drive_control_point_from_file(input_stream, "forward_control_point"));
-            drive_control_points.push_back(this->read_drive_control_point_from_file(input_stream, "turn_control_point"));
-
-            this->drive_input_manager = std::make_unique<DriveInputManager>(drive_control_points);
-        }
-
-        DriveInputManagerControlPoint LinearKalmanFilter::read_drive_control_point_from_file(std::ifstream &stream, std::string expected_point_name)
-        {
-            std::string line;
-            std::getline(stream, line);
-
-            if (line != expected_point_name)
-            {
-                throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_point_name);
-            }
-
-            real_t left_control;
-            real_t right_control;
-            std::getline(stream, line);
-            std::istringstream control_stream(line);
-            if (!(control_stream >> left_control >> right_control))
-            {
-                throw std::runtime_error("Unexpected line. Expected two floats for motor control, got " + line + ".");
-            }
-
-            Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> control_matrix = this->read_matrix_from_file(stream, "");
-            Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> covariance_matrix = this->read_matrix_from_file(stream, "");
-
-            DriveInputManagerControlPoint output(
-                    std::make_pair(left_control, right_control),
-                    control_matrix, 
-                    covariance_matrix);
-
-            return output;
+            this->drive_input_manager = std::make_unique<DriveInputManager>(this->read_matrix_from_file(input_stream, "base_forward_matrix"),
+                                                                            this->read_matrix_from_file(input_stream, "base_forward_covariance_matrix"),
+                                                                            this->read_matrix_from_file(input_stream, "base_turn_matrix"),
+                                                                            this->read_matrix_from_file(input_stream, "base_turn_covariance_matrix"),
+                                                                            this->read_named_real_from_file(input_stream, "base_speed"),
+                                                                            this->read_named_real_from_file(input_stream, "left_power_multiplier"));
         }
 
         Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> LinearKalmanFilter::read_matrix_from_file(std::ifstream &stream, std::string expected_matrix_name)
@@ -246,7 +231,7 @@ namespace magellan
 
                 if (line != expected_matrix_name)
                 {
-                    throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_matrix_name);
+                    throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_matrix_name + ".");
                 }
             }
 
@@ -257,7 +242,7 @@ namespace magellan
 
             if (!(matrix_size_line >> height >> width))
             {
-                throw std::runtime_error("Expected height, width for matrix " + expected_matrix_name + ", but got " + line);
+                throw std::runtime_error("Expected height, width for matrix " + expected_matrix_name + ", but got " + line + ".");
             }
 
             Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> output_matrix;
@@ -283,10 +268,29 @@ namespace magellan
                 {
                     throw std::runtime_error("Malformed row. Too many numbers in row.: " + line);
                 }
-
             }
 
             return output_matrix;
+        }
+
+        real_t LinearKalmanFilter::read_named_real_from_file(std::ifstream &stream, std::string expected_real_name)
+        {
+            std::string line;                
+            real_t val;
+            std::getline(stream, line);
+            if (line != expected_real_name)
+            {
+                throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_real_name + ".");
+            }
+
+            std::getline(stream, line);
+            std::istringstream parsed_line(line);
+            if (!(parsed_line >> val))
+            {
+                throw std::runtime_error("Could not read line " + line  + " into real_t.");
+            }
+
+            return val;
         }
     }
 }

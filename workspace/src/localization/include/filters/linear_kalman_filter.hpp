@@ -16,7 +16,6 @@
 #include <magellan_messages/MsgMagellanDrive.h>
 
 #include "contracts/global_pose.hpp"
-#include "contracts/drive_input_manager_control_point.hpp"
 #include "definitions.hpp"
 #include "filter.hpp"
 #include "input_managers/drive_input_manager.hpp"
@@ -31,14 +30,15 @@ namespace magellan
         {
             public:
                 LinearKalmanFilter(std::string parameter_path);
+                ~LinearKalmanFilter() {};
 
-                void accept_imu_message(magellan_messages::MsgMagellanImu &msg);
-                void accept_gps_message(sensor_msgs::NavSatFix &msg);
-                void accept_drive_message(magellan_messages::MsgMagellanDrive &msg);
+                void accept_imu_message(const magellan_messages::MsgMagellanImu::ConstPtr &msg);
+                void accept_gps_message(const sensor_msgs::NavSatFix::ConstPtr &msg);
+                void accept_drive_message(const magellan_messages::MsgMagellanDrive::ConstPtr &msg);
 
                 void update_global_pose(ros::Duration dt);
 
-                void register_debug_publishers(ros::NodeHandle nh);
+                void register_debug_publishers(ros::NodeHandle &nh);
 
             private:
                 // Runtime variables
@@ -53,7 +53,7 @@ namespace magellan
 
                 Eigen::Matrix<real_t, 3, 1> rotate_vector(
                         const Eigen::Matrix<real_t, 3, 3> &rotation_matrix,
-                        const Eigen::Matrix<real_t, 3, 3> &original_vector);
+                        const Eigen::Matrix<real_t, 3, 1> &original_vector);
 
                 Eigen::Matrix<real_t, 3, 3> rotate_covariance_matrix(
                         const Eigen::Matrix<real_t, 3, 3> &rotation_matrix, 
@@ -62,8 +62,8 @@ namespace magellan
                 Eigen::Matrix<real_t, 3, 3> roll_pitch_yaw_to_rotation_matrix(const vector3r_t &rpy_vec);
 
                 void initialize_parameters_from_file(std::string parameter_path); 
-                DriveInputManagerControlPoint read_drive_control_point_from_file(std::ifstream &stream, std::string expected_matrix_name);
                 Eigen::Matrix<real_t, Eigen::Dynamic, Eigen::Dynamic> read_matrix_from_file(std::ifstream &stream, std::string expected_matrix_name);
+                real_t read_named_real_from_file(std::ifstream &stream, std::string expected_real_name);
         };
     }
 }

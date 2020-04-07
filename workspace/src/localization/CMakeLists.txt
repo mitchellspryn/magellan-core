@@ -7,10 +7,11 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     sensor_msgs
     magellan_messages
+    geodesy
 )
 
 catkin_package(
-    CATKIN_DEPENDS roscpp message_generation sensor_msgs magellan_messages
+    CATKIN_DEPENDS roscpp message_generation sensor_msgs magellan_messages geodesy
 )
 
 include_directories(
@@ -21,7 +22,6 @@ include_directories(
 
 add_executable(${PROJECT_NAME}_node 
     src/node.cpp 
-    src/contracts/drive_input_manager_control_point.cpp
     src/contracts/global_pose.cpp
     src/filters/linear_kalman_filter.cpp 
     src/input_managers/drive_input_manager.cpp
