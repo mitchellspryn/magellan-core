@@ -12,13 +12,16 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_message_files(
     FILES
-    cone_detector/MsgConeDetectorOutput.msg
-    magellan_serial_port/MsgSerialPortLine.msg
-    magellan_imu/MsgMagellanImu.msg
-    magellan_drive/MsgMagellanDrive.msg
-    visual_odometry/MsgVisualOdometryDebug.msg
-    visual_odometry/MsgVisualOdometry.msg
-    magellan_obstacle_detection/MsgLocalObstacleField.msg
+    MsgConeDetectorOutput.msg
+    MsgMagellanDrive.msg
+    MsgMagellanImu.msg
+    MsgMagellanLocalization.msg
+    MsgMagellanRotationf.msg
+    MsgLocalObstacleField.msg
+    MsgSerialPortLine.msg
+    MsgVisualOdometryDebug.msg
+    MsgVisualOdometry.msg
+
 )
 
 generate_messages(

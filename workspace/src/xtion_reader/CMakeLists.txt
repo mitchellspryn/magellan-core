@@ -28,6 +28,7 @@ include_directories(
 )
 
 add_executable(${PROJECT_NAME}_node src/xtion_reader.cpp)
+add_dependencies(${PROJECT_NAME}_node ${catkin_EXPORTED_TARGETS})
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}

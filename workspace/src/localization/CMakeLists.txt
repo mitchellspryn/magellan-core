@@ -28,6 +28,9 @@ add_executable(${PROJECT_NAME}_node
     src/input_managers/gps_input_manager.cpp
     src/input_managers/imu_input_manager.cpp)
 
+add_dependencies(${PROJECT_NAME}_node
+    ${catkin_EXPORTED_TARGETS})
+
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 target_link_libraries(${PROJECT_NAME}_node
     ${catkin_LIBRARIES}
