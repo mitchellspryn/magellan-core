@@ -196,9 +196,9 @@ namespace magellan
         {
             // TODO: this isn't the most efficient, as it creates AA, then creates a quat, then goes to rot matrix. 
             // Not sure if it will ultimately matter, though.
-            Eigen::AngleAxis<real_t> roll_angle(rpy_vec[0], Eigen::Matrix<real_t, 3, 1>::UnitZ());
+            Eigen::AngleAxis<real_t> roll_angle(rpy_vec[0], Eigen::Matrix<real_t, 3, 1>::UnitX());
             Eigen::AngleAxis<real_t> pitch_angle(rpy_vec[1], Eigen::Matrix<real_t, 3, 1>::UnitY());
-            Eigen::AngleAxis<real_t> yaw_angle(rpy_vec[2], Eigen::Matrix<real_t, 3, 1>::UnitX());
+            Eigen::AngleAxis<real_t> yaw_angle(rpy_vec[2], Eigen::Matrix<real_t, 3, 1>::UnitZ());
 
             return (roll_angle * pitch_angle * yaw_angle).toRotationMatrix();
         }
@@ -280,7 +280,7 @@ namespace magellan
             std::getline(stream, line);
             if (line != expected_real_name)
             {
-                throw std::runtime_error("Unexpected matrix name: " + line + ". Expected " + expected_real_name + ".");
+                throw std::runtime_error("Unexpected real name: " + line + ". Expected " + expected_real_name + ".");
             }
 
             std::getline(stream, line);
