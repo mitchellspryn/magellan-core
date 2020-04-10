@@ -62,9 +62,9 @@ int init_imu()
 	gyro_config &= ~( (1 << 4) | (1 << 3) | (1 << 1) | (1 << 0) );
 	write_spi_byte(GYRO_CONFIG_MPU9250, gyro_config);
 
-	// Set the accelerometer to +- 2g mode
+	// Set the accelerometer to +- 16g mode
 	char accel_config = read_spi_byte(ACCEL_CONFIG_1_MPU9250);
-	accel_config &= ~( (1 << 4) | (1 << 3) );
+	accel_config |= ( (1 << 4) | (1 << 3) );
 	write_spi_byte(ACCEL_CONFIG_1_MPU9250, accel_config);
 
 	// Enable the low pass filter for the accelerometer
