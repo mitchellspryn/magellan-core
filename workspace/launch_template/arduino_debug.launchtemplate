@@ -1,5 +1,5 @@
 <launch>
-    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n {arduino_device_node} -b 38400 -s ? -m 25 -a 128 -h FA">
+    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n {arduino_device_node} -b 500000 -s ? -m 25 -a 128 -h FA">
         <remap from="output_topic" to="/arduino_serial_port/output_topic" />
     </node>
 

@@ -289,6 +289,8 @@ bool initialize_motor_controllers()
     set_motor_current_limit(RIGHT_ROBOCLAW_ADDRESS, CMD_SET_M2_MAX_CURRENT, CMD_GET_M2_MAX_CURRENT, MOTOR_CURRENT_LIMIT_AMPS, right_response_valid, right_response, right_motor_controller_publisher, "right_back");
     set_motor_current_limit(LEFT_ROBOCLAW_ADDRESS, CMD_SET_M1_MAX_CURRENT, CMD_GET_M1_MAX_CURRENT, MOTOR_CURRENT_LIMIT_AMPS, left_response_valid, left_response, left_motor_controller_publisher, "left_front");
     set_motor_current_limit(LEFT_ROBOCLAW_ADDRESS, CMD_SET_M2_MAX_CURRENT, CMD_GET_M2_MAX_CURRENT, MOTOR_CURRENT_LIMIT_AMPS, left_response_valid, left_response, left_motor_controller_publisher, "left_back");
+
+    return true;
 } 
 int main(int argc, char** argv)
 {

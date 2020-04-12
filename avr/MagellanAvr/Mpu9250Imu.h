@@ -39,6 +39,8 @@ size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes);
 #define I2C_SLV4_DI_MPU9250         0x35
 #define I2C_MASTER_STATUS_MPU9250   0x36
 #define INT_PIN_CFG_MPU9250         0x37
+#define INT_ENABLE                  0x38
+#define INT_STATUS                  0x3A
 #define DATA_START_MPU9250          0x3B
 #define EXT_SENS_DATA_00_MPU9250    0x49
 #define USER_CTRL_MPU9250           0x6A

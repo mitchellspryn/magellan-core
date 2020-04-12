@@ -19,7 +19,8 @@ else
     catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m -DPYTHON_LIBRARY=$PYTHON_LIBRARY -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MODULE_PATH=$CMAKE_MODULE_DIR
 
     # Regenerate the YCM database for cpp files
-    python3 utility-scripts/generate_ycm_database.py
+    # TODO: If quick build is done, compile commands aren't generated.
+    # python3 utility-scripts/generate_ycm_database.py
 
     source devel/setup.bash
 fi

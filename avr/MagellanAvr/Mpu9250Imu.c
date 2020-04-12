@@ -20,7 +20,7 @@ int init_imu()
 	PORTB &= ~( (1 << 3 ) | (1 << 2) | (1 << 1) | (1 << 0) );
 	
 	// SPI config (1 MHz)
-	SPCR |= (1 << SPE) | (1 << MSTR) | (1 << SPR0);
+	SPCR |= (1 << SPE) | (1 << MSTR) | (1 << SPR1) | (1 << SPR0);
 	SPCR &= ~(1 << SPIE);
 	SPSR &= ~(1 << SPI2X);
 
@@ -58,18 +58,24 @@ int init_imu()
 
 	// Enable low pass filter on gyros by clearing FChoice_b bits.
 	// Also set scale to 250 deg / sec. This will give us the most accuracy.
-	char gyro_config = read_spi_byte(GYRO_CONFIG_MPU9250);
-	gyro_config &= ~( (1 << 4) | (1 << 3) | (1 << 1) | (1 << 0) );
+	//char gyro_config = read_spi_byte(GYRO_CONFIG_MPU9250);
+	//gyro_config &= ~( (1 << 4) | (1 << 3) | (1 << 1) | (1 << 0) );
+	char gyro_config = 0x00;
 	write_spi_byte(GYRO_CONFIG_MPU9250, gyro_config);
 
 	// Set the accelerometer to +- 2g mode
-	char accel_config = read_spi_byte(ACCEL_CONFIG_1_MPU9250);
-	accel_config &= ~( (1 << 4) | (1 << 3) );
+	char accel_config = 0x00;
+	//char accel_config = read_spi_byte(ACCEL_CONFIG_1_MPU9250);
+	//accel_config |= ( (1 << 4) | (1 << 3) );
 	write_spi_byte(ACCEL_CONFIG_1_MPU9250, accel_config);
 
 	// Enable the low pass filter for the accelerometer
 	// Set the bandwidth to 44.8 Hz. This introduces a delay of 5 ms
-	write_spi_byte(ACCEL_CONFIG_2_MPU9250, 0x0B);
+	write_spi_byte(ACCEL_CONFIG_2_MPU9250, 0x06); //0x03
+
+	// Enable the interrupt pin when data is ready.
+	write_spi_byte(INT_PIN_CFG_MPU9250, 0x22);
+	write_spi_byte(INT_ENABLE, 0x01);
 
 	// Check that magnetometer is online.
 	write_spi_byte(I2C_MSTR_CTRL_MPU9250, 0x8D);
@@ -149,6 +155,12 @@ int init_imu()
 size_t read_and_append_imu_reading(char* buffer, size_t remainingBytes)
 {
 	if (remainingBytes <= MESSAGE_LENGTH)
+	{
+		return 0;
+	}
+
+	unsigned char dataReady = read_spi_byte(INT_STATUS);
+	if (!dataReady & 0x01)
 	{
 		return 0;
 	}
