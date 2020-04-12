@@ -76,7 +76,7 @@ void init_client_serial_port()
 	uint16_t ubrrl;
 	unsigned char use2x;
 
-	get_38400_baud_settings(&ubrrh, &ubrrl, &use2x);
+	get_500000_baud_settings(&ubrrh, &ubrrl, &use2x);
 
 	DDRE |= (1 << 1) | (1 << 0);
 	UBRR0H = ubrrh;
