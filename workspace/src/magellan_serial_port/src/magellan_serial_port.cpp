@@ -62,13 +62,22 @@ bool init_serial_port(long baud, const char* serial_port_name)
     tty.c_cc[VTIME] = 0;
 
     speed_t baud_speed;
-    if (baud == 115200)
+    
+    if (baud == 38400)
+    {
+        baud_speed = B38400;
+    }
+    else if (baud == 57600)
+    {
+        baud_speed = B57600;
+    }
+    else if (baud == 115200)
     {
         baud_speed = B115200;
     }
-    else if (baud == 38400)
+    else if (baud == 500000)
     {
-        baud_speed = B38400;
+        baud_speed = B500000;
     }
     else
     {

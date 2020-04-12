@@ -9,7 +9,7 @@
         <remap from="output_motor_control" to="/control_webpage/output_motor_control" />
     </node>
 
-    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n {arduino_device_node} -b 38400 -s ? -m 25 -a 128 -h FA">
+    <node name="arduino_serial_port" pkg="magellan_serial_port" type="node" args="-n {arduino_device_node} -b 500000 -s ? -m 25 -a 128 -h FA">
         <remap from="output_topic" to="/arduino_serial_port/output_topic" />
     </node>
 
@@ -42,12 +42,17 @@
         <remap from="output_topic" to="/left_roboclaw_motor_controller_serial_port/output_topic" />
     </node>
 
+    <node name="motor_ramp_node" pkg="motor_ramp" type="node" args="-m 80">
+        <remap from="input_topic" to="/control_webpage/output_motor_control" />
+        <remap from="output_topic" to="/motor_ramp/output_topic" />
+    </node>
+
     <node name="roboclaw_motor_hardware" pkg="magellan_drive_hardware" type="node">
         <remap from="output_left_topic" to="/roboclaw_motor_hardware/output_left_topic" />
         <remap from="input_left_serial_topic" to="/left_roboclaw_motor_controller_serial_port/output_topic" />
         <remap from="output_right_topic" to="/roboclaw_motor_hardware/output_right_topic" />
         <remap from="input_right_serial_topic" to="/right_roboclaw_motor_controller_serial_port/output_topic" />
-        <remap from="input_command_topic" to="/control_webpage/output_motor_control" />
+        <remap from="input_command_topic" to="/motor_ramp/output_topic" />
     </node>
 
 </launch>
