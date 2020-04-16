@@ -89,6 +89,7 @@ def FindCorrespondingSourceFile( filename ):
 
 def Settings( **kwargs ):
   global databases
+  print(kwargs)
   if kwargs[ 'language' ] == 'cfamily':
     # If the file is a header, try to find the corresponding source file and
     # retrieve its flags from the compilation database if using one. This is
