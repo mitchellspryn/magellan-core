@@ -1,0 +1,3 @@
+Header header
+MsgMagellanObstacle[] obstacles
+
