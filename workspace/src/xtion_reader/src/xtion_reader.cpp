@@ -210,6 +210,7 @@ int main(int argc, char** argv)
 
             if (newRgb && newDepth)
             {
+                // TODO: we should convert cvDepthFrame from whatever units the xtion is using to mm.
                 cv::Mat cvDepthFrame(depthFrameRef.getHeight(), depthFrameRef.getWidth(), CV_16UC1, (void*)depthFrameRef.getData());
                 cv::Mat cvVideoFrame(rgbFrameRef.getHeight(), rgbFrameRef.getWidth(), CV_8UC3, (void*)rgbFrameRef.getData());
 
