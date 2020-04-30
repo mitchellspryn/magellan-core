@@ -2,36 +2,45 @@
 #include "geometry_msgs/Vector3.h"
 #include "ros/node_handle.h"
 #include "ros/time.h"
+#include "sensor_msgs/PointCloud.h"
 #include <exception>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <image_transport/image_transport.h>
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
 #include <ros/ros.h>
-#include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/ChannelFloat32.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/PointField.h>
 #include <sl/Camera.hpp>
 #include <stdexcept>
 #include <thread>
 #include <unistd.h>
 
-#include <magellan_messages/MsgZedImagePose.h>
-#include <magellan_messages/MsgZedSensors.h>
+ros::Publisher g_point_cloud_publisher;
+ros::Publisher g_pose_publisher;
+ros::Publisher g_imu_publisher;
+ros::Publisher g_magnetic_field_publisher;
 
-ros::Publisher image_pose_publisher;
-ros::Publisher sensor_publisher;
-sl::Camera camera;
-sl::RuntimeParameters runtime_parameters;
+sl::Camera g_camera;
+sl::RuntimeParameters g_runtime_parameters;
 
 typedef struct capture_parameters
 {
-    bool publish_depth_image;
-    bool publish_point_cloud;
     bool publish_sensors;
     bool publish_pose;
     int frames_per_second;
 } capture_parameters_t;
 
+static std::string g_frame_id = "zed";
+static constexpr int g_pose_update_rate = 100;
+
 inline void sl_vec3_to_ros_vec3(const sl::float3 &sl_data, geometry_msgs::Vector3 &ros_data)
 {
+    // These can't be memcpy
+    // Vector3 is double, and sl::float3 is float
     ros_data.x = sl_data.x;
     ros_data.y = sl_data.y;
     ros_data.z = sl_data.z;
@@ -52,7 +61,7 @@ inline void sl_quat_to_ros_quat(const sl::float4 &sl_data, geometry_msgs::Quater
     quat.z = sl_data.z;
 }
 
-inline void sl_cov_mat_to_ros_cov_mat(const sl::Matrix3f &sl_data, boost::array<double, 9> ros_data)
+inline void sl_cov_mat_to_ros_cov_mat(const sl::Matrix3f &sl_data, boost::array<double, 9> &ros_data)
 {
     for (int i = 0; i < 9; i++)
     {
@@ -60,70 +69,100 @@ inline void sl_cov_mat_to_ros_cov_mat(const sl::Matrix3f &sl_data, boost::array<
     }
 }
 
-// Copied and lightly modified from sl_tools.
-// see imageToROSmsg here:
-// https://github.com/stereolabs/zed-ros-wrapper/blob/master/zed_nodelets/src/tools/src/sl_tools.cpp
-void copy_mat_to_ros_imgmsg(sensor_msgs::Image &img_msg, const sl::Mat &img, const ros::Time &t) 
+sensor_msgs::PointField make_point_field(const std::string &name, const unsigned int offset, const unsigned int datatype)
 {
-    img_msg.header.stamp = t;
-    img_msg.header.frame_id = "";
-    img_msg.height = img.getHeight();
-    img_msg.width = img.getWidth();
-
-    int num = 1; // for endianness detection
-    img_msg.is_bigendian = !(*(char*)&num == 1);
-
-    img_msg.step = img.getStepBytes();
-
-    size_t size = img_msg.step * img_msg.height;
-    img_msg.data.resize(size);
-
-    sl::MAT_TYPE dataType = img.getDataType();
-
-    switch (dataType) 
-    {
-        case sl::MAT_TYPE::F32_C1: /**< float 1 channel.*/
-            img_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::float1>(), size);
-            break;
-
-        case sl::MAT_TYPE::F32_C2: /**< float 2 channels.*/
-            img_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC2;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::float2>(), size);
-            break;
-
-        case sl::MAT_TYPE::F32_C3: /**< float 3 channels.*/
-            img_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC3;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::float3>(), size);
-            break;
-
-        case sl::MAT_TYPE::F32_C4: /**< float 4 channels.*/
-            img_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC4;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::float4>(), size);
-            break;
-
-        case sl::MAT_TYPE::U8_C1: /**< unsigned char 1 channel.*/
-            img_msg.encoding = sensor_msgs::image_encodings::MONO8;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::uchar1>(), size);
-            break;
-
-        case sl::MAT_TYPE::U8_C2: /**< unsigned char 2 channels.*/
-            img_msg.encoding = sensor_msgs::image_encodings::TYPE_8UC2;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::uchar2>(), size);
-            break;
-
-        case sl::MAT_TYPE::U8_C3: /**< unsigned char 3 channels.*/
-            img_msg.encoding = sensor_msgs::image_encodings::BGR8;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::uchar3>(), size);
-            break;
-
-        case sl::MAT_TYPE::U8_C4: /**< unsigned char 4 channels.*/
-            img_msg.encoding = sensor_msgs::image_encodings::BGRA8;
-            memcpy((char*)(&img_msg.data[0]), img.getPtr<sl::uchar4>(), size);
-            break;
-    }
+    sensor_msgs::PointField pf;
+    pf.count = 1;
+    pf.datatype = datatype;
+    pf.offset = offset;
+    pf.name = name;
+    return pf;
 }
 
+void initialize_point_cloud_msg(sensor_msgs::PointCloud2 &point_cloud_msg, const int height, const int width)
+{
+    int one = 1; // for endianness detection
+
+    point_cloud_msg.height = height;
+    point_cloud_msg.width = width;
+    point_cloud_msg.is_bigendian = !(*(char*)&one == 1); // TODO: does this actually work?
+    point_cloud_msg.is_dense = true; // TODO: Is this right?
+
+    int point_step = 16;
+    point_cloud_msg.point_step = point_step;
+    point_cloud_msg.row_step = point_step * width;
+
+    point_cloud_msg.fields.push_back(make_point_field("x", 0, 7)); //Float32
+    point_cloud_msg.fields.push_back(make_point_field("y", 4, 7));
+    point_cloud_msg.fields.push_back(make_point_field("z", 8, 7));
+    point_cloud_msg.fields.push_back(make_point_field("r", 12, 2)); //Uint8
+    point_cloud_msg.fields.push_back(make_point_field("g", 13, 2)); 
+    point_cloud_msg.fields.push_back(make_point_field("b", 14, 2)); 
+    point_cloud_msg.fields.push_back(make_point_field("a", 15, 2)); 
+
+    point_cloud_msg.data.resize(point_step * width * height);
+
+    point_cloud_msg.header.frame_id = g_frame_id;
+}
+
+void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
+{
+    sl::Mat point_cloud;
+    sl::Pose pose;
+
+    sensor_msgs::PointCloud2 point_cloud_msg;
+    geometry_msgs::PoseWithCovarianceStamped pose_msg;
+
+    pose_msg.header.frame_id = g_frame_id;
+
+    const int height = 376;
+    const int width = 672;
+    
+    initialize_point_cloud_msg(point_cloud_msg, height, width);
+
+    const int frame_downsample_counter = g_pose_update_rate / capture_parameters.frames_per_second;
+    int frame_counter = 0;
+
+    while (ros::ok())
+    {
+        // TODO: how much to sleep?
+        if (g_camera.grab(g_runtime_parameters) == sl::ERROR_CODE::SUCCESS)
+        {
+            ros::Time now = ros::Time::now();
+
+            if (frame_counter == 0)
+            {
+                point_cloud_msg.header.stamp = now;
+                g_camera.retrieveMeasure(point_cloud, sl::MEASURE::XYZBGRA);
+                memcpy(static_cast<void*>(&point_cloud_msg.data[0]), point_cloud.getPtr<sl::float4>(), height*width*4*sizeof(float));
+                g_point_cloud_publisher.publish(point_cloud_msg);
+            }
+
+            if (capture_parameters.publish_pose)
+            {
+                pose_msg.header.stamp = now;
+                g_camera.getPosition(pose, sl::REFERENCE_FRAME::WORLD);
+
+                sl_vec3_to_ros_point(pose.getTranslation(), pose_msg.pose.pose.position);
+                sl_quat_to_ros_quat(pose.getOrientation(), pose_msg.pose.pose.orientation);
+
+                // TODO: Should this be separate message? Or should we publish marker array?
+                // For now putting confidence in xx-yy-zz of covariance
+                // Note that pose_confidence is backwards - 100 == full confidence, 0 == no confidence
+                pose_msg.pose.covariance[0] = 100.0 - pose.pose_confidence;
+                pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
+                pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
+
+                g_pose_publisher.publish(pose_msg);
+            }
+
+            frame_counter++;
+            frame_counter %= frame_downsample_counter;
+        }
+
+        usleep(5000);
+    }
+}
 
 // TODO: should we use timers instead of threads?
 // It would be cleaner, but worried about performance implications
@@ -132,89 +171,51 @@ void sensor_grab_thread(const capture_parameters_t &capture_parameters)
     sl::SensorsData sensors_data;
     sl::Timestamp last_collected_timestamp = -1;
 
-    magellan_messages::MsgZedSensors zed_sensor_message;
+    sensor_msgs::Imu imu_msg;
+    sensor_msgs::MagneticField magnetic_field_msg;
+
+    imu_msg.header.frame_id = g_frame_id;
+    magnetic_field_msg.header.frame_id = g_frame_id;
+
+    for (int i = 0; i < 9; i++)
+    {
+        magnetic_field_msg.magnetic_field_covariance[i] = 0;
+        imu_msg.orientation_covariance[i] = 0;
+    }
 
     while (ros::ok())
     {
         // TODO: how much to sleep?
-        if (camera.getSensorsData(sensors_data, sl::TIME_REFERENCE::CURRENT) == sl::ERROR_CODE::SUCCESS)
+        if (g_camera.getSensorsData(sensors_data, sl::TIME_REFERENCE::CURRENT) == sl::ERROR_CODE::SUCCESS)
         {
             if (sensors_data.imu.timestamp > last_collected_timestamp)
             {
-                zed_sensor_message.header.stamp = ros::Time::now();
+                ros::Time now = ros::Time::now();
 
-                sl_vec3_to_ros_vec3(sensors_data.imu.angular_velocity, zed_sensor_message.imu.angular_velocity);
-                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.angular_velocity_covariance, zed_sensor_message.imu.angular_velocity_covariance);
+                imu_msg.header.stamp = now;
+                magnetic_field_msg.header.stamp = now;
 
-                sl_vec3_to_ros_vec3(sensors_data.imu.linear_acceleration, zed_sensor_message.imu.linear_acceleration);
-                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.linear_acceleration_covariance, zed_sensor_message.imu.linear_acceleration_covariance);
+                sl_vec3_to_ros_vec3(sensors_data.imu.angular_velocity, imu_msg.angular_velocity);
+                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.angular_velocity_covariance, imu_msg.angular_velocity_covariance);
 
-                sl_vec3_to_ros_vec3(sensors_data.magnetometer.magnetic_field_calibrated, zed_sensor_message.magnetometer);
+                sl_vec3_to_ros_vec3(sensors_data.imu.linear_acceleration, imu_msg.linear_acceleration);
+                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.linear_acceleration_covariance, imu_msg.linear_acceleration_covariance);
+
+                sl_vec3_to_ros_vec3(sensors_data.magnetometer.magnetic_field_calibrated, magnetic_field_msg.magnetic_field);
                 
-                zed_sensor_message.pressure = sensors_data.barometer.pressure;
-                zed_sensor_message.temperature = sensors_data.temperature.temperature_map[sl::SensorsData::TemperatureData::SENSOR_LOCATION::BAROMETER];
-
-                sensor_publisher.publish(zed_sensor_message);
+                g_imu_publisher.publish(imu_msg);
+                g_magnetic_field_publisher.publish(magnetic_field_msg);
             }
         }
-    }
-}
 
-void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
-{
-    sl::Mat rgb;
-    sl::Mat depth;
-    sl::Mat point_cloud;
-    sl::Pose pose;
-
-    magellan_messages::MsgZedImagePose image_pose_msg;
-
-    image_pose_msg.has_depth_image = capture_parameters.publish_depth_image;
-    image_pose_msg.has_point_cloud = capture_parameters.publish_point_cloud;
-    image_pose_msg.has_pose = capture_parameters.publish_pose;
-
-    while (ros::ok())
-    {
-        // TODO: how much to sleep?
-        if (camera.grab(runtime_parameters) == sl::ERROR_CODE::SUCCESS)
-        {
-            image_pose_msg.header.stamp = ros::Time::now();
-
-            // TODO: if we need more performance, we can special-case copy_mat_to_ros_imgmsg to remove some computation
-            // e.g. if we want to avoid recomputing the size of the image each frame. 
-            camera.retrieveImage(rgb, sl::VIEW::LEFT);
-            copy_mat_to_ros_imgmsg(image_pose_msg.rgb, rgb, image_pose_msg.header.stamp);
-
-            if (capture_parameters.publish_depth_image)
-            {
-                camera.retrieveMeasure(depth, sl::MEASURE::DEPTH);
-                copy_mat_to_ros_imgmsg(image_pose_msg.depth, depth, image_pose_msg.header.stamp);
-            }
-
-            if (capture_parameters.publish_point_cloud)
-            {
-                camera.retrieveMeasure(depth, sl::MEASURE::XYZRGBA);
-
-                // TODO: copy to point cloud struct
-            }
-
-            if (capture_parameters.publish_pose)
-            {
-                camera.getPosition(pose, sl::REFERENCE_FRAME::WORLD);
-
-                sl_vec3_to_ros_point(pose.getTranslation(), image_pose_msg.pose.position);
-                sl_quat_to_ros_quat(pose.getOrientation(), image_pose_msg.pose.orientation);
-            }
-
-            image_pose_publisher.publish(image_pose_msg);
-        }
+        usleep(1000);
     }
 }
 
 sl::ERROR_CODE init_camera(const capture_parameters_t &parameters)
 {
     sl::InitParameters init_parameters;
-    init_parameters.camera_fps = parameters.frames_per_second;
+    init_parameters.camera_fps = 100; // Maximum accuracy for pose calculations. Will downsample for point cloud.
     init_parameters.camera_resolution = sl::RESOLUTION::VGA;
     init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
     init_parameters.coordinate_units = sl::UNIT::MILLIMETER;
@@ -226,9 +227,9 @@ sl::ERROR_CODE init_camera(const capture_parameters_t &parameters)
     init_parameters.enable_right_side_measure = false;
     init_parameters.sensors_required = (parameters.publish_pose || parameters.publish_sensors);
 
-    runtime_parameters.sensing_mode = sl::SENSING_MODE::STANDARD;
+    g_runtime_parameters.sensing_mode = sl::SENSING_MODE::STANDARD;
 
-    return camera.open(init_parameters);
+    return g_camera.open(init_parameters);
 }
 
 sl::ERROR_CODE init_positional_tracking(const capture_parameters_t &parameters)
@@ -244,7 +245,7 @@ sl::ERROR_CODE init_positional_tracking(const capture_parameters_t &parameters)
     position_tracking_parameters.enable_pose_smoothing = true;
     position_tracking_parameters.set_floor_as_origin = false;
 
-    return camera.enablePositionalTracking(position_tracking_parameters);
+    return g_camera.enablePositionalTracking(position_tracking_parameters);
 }
 
 int main(int argc, char** argv)
@@ -252,25 +253,17 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "zed_sensor_reader");
 
     capture_parameters_t capture_parameters;
-    capture_parameters.frames_per_second = 60;
-    capture_parameters.publish_depth_image = false;
-    capture_parameters.publish_point_cloud = false;
+    capture_parameters.frames_per_second = 50;
     capture_parameters.publish_pose = false;
     capture_parameters.publish_sensors = false;
 
     // TODO: args
     int c;
-    while ((c = getopt(argc, argv, "dposf:")) != -1)
+    while ((c = getopt(argc, argv, "psf:")) != -1)
     {
         switch (c)
         {
-            case 'd':
-                capture_parameters.publish_depth_image = true;
-                break;
             case 'p':
-                capture_parameters.publish_point_cloud = true;
-                break;
-            case 'o':
                 capture_parameters.publish_pose = true;
                 break;
             case 's':
@@ -288,11 +281,21 @@ int main(int argc, char** argv)
                             ex.what());
                     return 1;
                 }
+                break;
             default:
                 ROS_FATAL("Unknown command line flag: %c.", c);
                 return 1;
         }
     }
+
+    if (g_pose_update_rate % capture_parameters.frames_per_second != 0)
+    {
+        ROS_FATAL("Error: Requested FPS of %d is not a factor of %d.",
+                capture_parameters.frames_per_second,
+                g_pose_update_rate);
+        return 1;
+    }
+
 
     sl::ERROR_CODE open_result = init_camera(capture_parameters);
     if (open_result != sl::ERROR_CODE::SUCCESS)
@@ -301,28 +304,42 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    sl::ERROR_CODE position_tracking_err_code = init_positional_tracking(capture_parameters);
-    if (position_tracking_err_code != sl::ERROR_CODE::SUCCESS)
+    if (capture_parameters.publish_pose)
     {
-        ROS_FATAL("Could not initialize positional tracking. Init function returns %d.", static_cast<int>(position_tracking_err_code));
-
-        if (camera.isPositionalTrackingEnabled())
+        sl::ERROR_CODE position_tracking_err_code = init_positional_tracking(capture_parameters);
+        if (position_tracking_err_code != sl::ERROR_CODE::SUCCESS)
         {
-            camera.disablePositionalTracking();
-        }
-        
-        if (camera.isOpened())
-        {
-            camera.close();
-        }
+            ROS_FATAL("Could not initialize positional tracking. Init function returns %d.", static_cast<int>(position_tracking_err_code));
 
-        return 1;
+            if (g_camera.isPositionalTrackingEnabled())
+            {
+                g_camera.disablePositionalTracking();
+            }
+            
+            if (g_camera.isOpened())
+            {
+                g_camera.close();
+            }
+
+            return 1;
+        }
     }
 
     ros::NodeHandle nh;
-    image_pose_publisher = nh.advertise<magellan_messages::MsgZedImagePose>("output_topic_image_pose", 1000);
-    image_pose_publisher = nh.advertise<magellan_messages::MsgZedSensors>("output_topic_sensors", 1000);
 
+    g_point_cloud_publisher = nh.advertise<sensor_msgs::PointCloud2>("output_topic_point_cloud", 1000);
+
+    if (capture_parameters.publish_pose)
+    {
+        g_pose_publisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("output_topic_pose", 1000);
+    }
+
+    if (capture_parameters.publish_sensors)
+    {
+        g_imu_publisher = nh.advertise<sensor_msgs::Imu>("output_topic_imu", 1000);
+        g_magnetic_field_publisher = nh.advertise<sensor_msgs::MagneticField>("output_topic_mag_field", 1000);
+    }
+    
     std::thread image_publish_thread(image_pose_grab_thread, capture_parameters);
     std::thread sensor_publish_thread;
 
@@ -340,14 +357,14 @@ int main(int argc, char** argv)
         sensor_publish_thread.join();
     }
 
-    if (camera.isPositionalTrackingEnabled())
+    if (capture_parameters.publish_pose && g_camera.isPositionalTrackingEnabled())
     {
-        camera.disablePositionalTracking();
+        g_camera.disablePositionalTracking();
     }
 
-    if (camera.isOpened())
+    if (g_camera.isOpened())
     {
-        camera.close();
+        g_camera.close();
     }
 
     return 0;

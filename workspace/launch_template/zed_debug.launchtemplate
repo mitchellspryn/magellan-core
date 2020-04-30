@@ -1,0 +1,8 @@
+<launch>
+    <node name="zed_reader" pkg="zed_sensor_reader" type="node" args="-d -p -o -f 60">
+        <remap from="output_topic_image_pose" to="/zed_reader/image_pose_output_topic" />
+        <remap from="output_topic_sensors" to="/zed_reader/sensors_output_topic" />
+    </node>
+
+    <node name="recorder" pkg="rosbag" type="record" args="/zed_reader/image_pose_output_topic /zed_reader/sensors_output_topic -o {rosbag_output_dir}ZedData" />
+</launch>
