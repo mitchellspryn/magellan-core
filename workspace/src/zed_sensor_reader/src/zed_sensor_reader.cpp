@@ -3,6 +3,8 @@
 #include "ros/node_handle.h"
 #include "ros/time.h"
 #include "sensor_msgs/PointCloud.h"
+#include "tf/LinearMath/Quaternion.h"
+#include "tf/transform_datatypes.h"
 #include <exception>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <image_transport/image_transport.h>
@@ -15,14 +17,20 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/PointField.h>
 #include <sl/Camera.hpp>
+#include <std_msgs/ColorRGBA.h>
 #include <stdexcept>
+#include <tf/transform_broadcaster.h>
 #include <thread>
 #include <unistd.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 ros::Publisher g_point_cloud_publisher;
 ros::Publisher g_pose_publisher;
 ros::Publisher g_imu_publisher;
 ros::Publisher g_magnetic_field_publisher;
+
+ros::Publisher g_viz_publisher;
 
 sl::Camera g_camera;
 sl::RuntimeParameters g_runtime_parameters;
@@ -34,8 +42,8 @@ typedef struct capture_parameters
     int frames_per_second;
 } capture_parameters_t;
 
-static std::string g_frame_id = "zed";
-static constexpr int g_pose_update_rate = 100;
+static std::string g_frame_id = "map";
+static constexpr int g_pose_update_rate = 60;
 
 inline void sl_vec3_to_ros_vec3(const sl::float3 &sl_data, geometry_msgs::Vector3 &ros_data)
 {
@@ -85,7 +93,8 @@ void initialize_point_cloud_msg(sensor_msgs::PointCloud2 &point_cloud_msg, const
 
     point_cloud_msg.height = height;
     point_cloud_msg.width = width;
-    point_cloud_msg.is_bigendian = !(*(char*)&one == 1); // TODO: does this actually work?
+    //point_cloud_msg.is_bigendian = !(*(char*)&one == 1); // TODO: does this actually work?
+    point_cloud_msg.is_bigendian = false;
     point_cloud_msg.is_dense = true; // TODO: Is this right?
 
     int point_step = 16;
@@ -102,7 +111,48 @@ void initialize_point_cloud_msg(sensor_msgs::PointCloud2 &point_cloud_msg, const
 
     point_cloud_msg.data.resize(point_step * width * height);
 
-    point_cloud_msg.header.frame_id = g_frame_id;
+    //point_cloud_msg.header.frame_id = g_frame_id;
+    point_cloud_msg.header.frame_id = "zed";
+
+    for (int i = 0; i < point_step*width*height; i++)
+    {
+        point_cloud_msg.data[i] = 0;
+    }
+}
+
+void initialize_visualization(visualization_msgs::MarkerArray &marker_array_msg)
+{
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = g_frame_id;
+    marker.ns = "viz";
+    marker.id = 1;
+    marker.type = 9; //TEXT
+    marker.action = 0;
+
+    geometry_msgs::Pose p;
+    p.position.x = 0.0f;
+    p.position.y = 0.0f;
+    p.position.z = 1.0f;
+    marker.pose = p;
+
+    geometry_msgs::Vector3 v;
+    v.x = 1.0f;
+    v.y = 1.0f;
+    v.z = 1.0f;
+    marker.scale = v;
+
+    std_msgs::ColorRGBA c;
+    c.r = 1;
+    c.b = 1;
+    c.g = 1;
+    c.a = 1;
+    marker.color = c;
+
+    marker.lifetime = ros::Duration(0);
+    marker.frame_locked = true;
+
+    marker_array_msg.markers.resize(1);
+    marker_array_msg.markers[0] = marker;
 }
 
 void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
@@ -112,13 +162,26 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
 
     sensor_msgs::PointCloud2 point_cloud_msg;
     geometry_msgs::PoseWithCovarianceStamped pose_msg;
+    visualization_msgs::MarkerArray marker_array_msg;
+
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(0, 0, 0));
+    tf::Quaternion q;
+    q.setW(1);
+    q.setX(0);
+    q.setY(0);
+    q.setZ(0);
+    transform.setRotation(q);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "zed"));
 
     pose_msg.header.frame_id = g_frame_id;
 
-    const int height = 376;
-    const int width = 672;
+    const int height = 720;
+    const int width = 1280;
     
     initialize_point_cloud_msg(point_cloud_msg, height, width);
+    initialize_visualization(marker_array_msg);
 
     const int frame_downsample_counter = g_pose_update_rate / capture_parameters.frames_per_second;
     int frame_counter = 0;
@@ -133,7 +196,7 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
             if (frame_counter == 0)
             {
                 point_cloud_msg.header.stamp = now;
-                g_camera.retrieveMeasure(point_cloud, sl::MEASURE::XYZBGRA);
+                g_camera.retrieveMeasure(point_cloud, sl::MEASURE::XYZRGBA);
                 memcpy(static_cast<void*>(&point_cloud_msg.data[0]), point_cloud.getPtr<sl::float4>(), height*width*4*sizeof(float));
                 g_point_cloud_publisher.publish(point_cloud_msg);
             }
@@ -149,11 +212,21 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 // TODO: Should this be separate message? Or should we publish marker array?
                 // For now putting confidence in xx-yy-zz of covariance
                 // Note that pose_confidence is backwards - 100 == full confidence, 0 == no confidence
-                pose_msg.pose.covariance[0] = 100.0 - pose.pose_confidence;
-                pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
-                pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
+                //pose_msg.pose.covariance[0] = 100.0 - pose.pose_confidence;
+                //pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
+                //pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
+                
+                marker_array_msg.markers[0].text = "Confidence: " + std::to_string(pose.pose_confidence) + ".";
 
+                transform.setOrigin(tf::Vector3(pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z));
+                transform.setRotation(tf::Quaternion(pose_msg.pose.pose.orientation.x,
+                            pose_msg.pose.pose.orientation.y,
+                            pose_msg.pose.pose.orientation.z,
+                            pose_msg.pose.pose.orientation.w));
+
+                br.sendTransform(tf::StampedTransform(transform, now, "map", "zed"));
                 g_pose_publisher.publish(pose_msg);
+                g_viz_publisher.publish(marker_array_msg);
             }
 
             frame_counter++;
@@ -215,12 +288,13 @@ void sensor_grab_thread(const capture_parameters_t &capture_parameters)
 sl::ERROR_CODE init_camera(const capture_parameters_t &parameters)
 {
     sl::InitParameters init_parameters;
-    init_parameters.camera_fps = 100; // Maximum accuracy for pose calculations. Will downsample for point cloud.
-    init_parameters.camera_resolution = sl::RESOLUTION::VGA;
-    init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
-    init_parameters.coordinate_units = sl::UNIT::MILLIMETER;
-    init_parameters.depth_minimum_distance = 200;
-    init_parameters.depth_maximum_distance = 1000 * 20;
+    init_parameters.camera_fps = 60; // Maximum accuracy for pose calculations. Will downsample for point cloud.
+    init_parameters.camera_resolution = sl::RESOLUTION::HD720;
+    //init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
+    init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Z_UP_X_FWD;
+    init_parameters.coordinate_units = sl::UNIT::METER;
+    init_parameters.depth_minimum_distance = 0.2;
+    init_parameters.depth_maximum_distance = 20;
     init_parameters.depth_mode = sl::DEPTH_MODE::ULTRA;
     init_parameters.depth_stabilization = true;
     init_parameters.enable_image_enhancement = true;
@@ -328,6 +402,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     g_point_cloud_publisher = nh.advertise<sensor_msgs::PointCloud2>("output_topic_point_cloud", 1000);
+    g_viz_publisher = nh.advertise<visualization_msgs::MarkerArray>("output_viz", 1000);
 
     if (capture_parameters.publish_pose)
     {

@@ -9,6 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   magellan_messages
+  tf
+  visualization_msgs
 )
 
 find_package(OpenCV REQUIRED)
@@ -16,7 +18,7 @@ find_package(ZED 3 REQUIRED)
 find_package(CUDA ${ZED_CUDA_VERSION} EXACT REQUIRED)
 
 catkin_package(
-    CATKIN_DEPENDS roscpp image_transport cv_bridge message_generation sensor_msgs magellan_messages
+    CATKIN_DEPENDS roscpp image_transport cv_bridge message_generation sensor_msgs magellan_messages visualization_msgs tf
 )
 
 SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
