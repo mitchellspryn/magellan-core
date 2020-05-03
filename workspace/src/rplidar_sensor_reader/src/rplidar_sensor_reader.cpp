@@ -1,5 +1,6 @@
 #include "rplidar.h"
 
+#include <limits>
 #include <math.h>
 #include <unistd.h>
 #include <stdexcept>
@@ -8,7 +9,9 @@
 #include <signal.h>
 
 #include <ros/ros.h>
-#include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/PointCloud2.h>
+
+#include <random>
 
 namespace rplidar = rp::standalone::rplidar;
 
@@ -43,6 +46,16 @@ void clean_up(int dummy_signal)
     should_continue = false;
 }
 
+sensor_msgs::PointField make_point_field(const std::string &name, const unsigned int offset, const unsigned int datatype)
+{
+    sensor_msgs::PointField pf;
+    pf.count = 1;
+    pf.datatype = datatype;
+    pf.offset = offset;
+    pf.name = name;
+    return pf;
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "rplidar_sensor_reader");
@@ -50,12 +63,16 @@ int main(int argc, char** argv)
     char usb_port_name[USB_PORT_MAX_LEN];
     char mode[RPLIDAR_MODE_NAME_MAX_LEN];
 
+    float x_offset_m = 0;
+    float y_offset_m = 0;
+    float z_offset_m = 0;
+
     // Set the default 
     strcpy(mode, "stability");
 
     int c;
     int len;
-    while((c = getopt(argc, argv, "n:m:")) != -1)
+    while((c = getopt(argc, argv, "n:m:x:y:z:")) != -1)
     {
         switch (c)
         {
@@ -79,6 +96,45 @@ int main(int argc, char** argv)
 
                 strncpy(mode, optarg, RPLIDAR_MODE_NAME_MAX_LEN);
                 break;
+            case 'x':
+                try
+                {
+                    x_offset_m = std::stof(optarg);
+                }
+                catch (...)
+                {
+                    ROS_ERROR("Could not convert string %s to float for x offset.",
+                            optarg);
+                    return -1;
+                }
+                break;
+            case 'y':
+                try
+                {
+                    y_offset_m = std::stof(optarg);
+                }
+                catch (...)
+                {
+                    ROS_ERROR("Could not convert string %s to float for y offset.",
+                            optarg);
+                    return -1;
+                }
+                break;
+            case 'z':
+                try
+                {
+                    z_offset_m = std::stof(optarg);
+                }
+                catch (...)
+                {
+                    ROS_ERROR("Could not convert string %s to float for z offset.",
+                            optarg);
+                    return -1;
+                }
+                break;
+            default:
+                ROS_ERROR("Unrecognized command line arg: %c", c);
+                return -1;
         }
     }
 
@@ -142,19 +198,30 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    int numberOfPointsPerScan = NUMBER_POINTS_PER_SCAN;
+    sensor_msgs::PointCloud2 point_cloud_msg;
+    point_cloud_msg.is_bigendian = false;
+    point_cloud_msg.is_dense = false;
+    point_cloud_msg.header.frame_id = "map";
 
-    sensor_msgs::LaserScan laser_scan;
-    laser_scan.angle_min = 0;
-    laser_scan.angle_max = 2 * M_PI;
-    laser_scan.angle_increment = (2.0 * M_PI) / numberOfPointsPerScan;
-    laser_scan.range_min = 200;
-    laser_scan.range_max = 25000;
-    
-    for (int i = 0; i < numberOfPointsPerScan; i++)
+    int point_step = 16;
+    point_cloud_msg.height = 1;
+    point_cloud_msg.width = static_cast<int>(NUMBER_POINTS_PER_SCAN);
+    point_cloud_msg.point_step = point_step;
+    point_cloud_msg.row_step = point_step * point_cloud_msg.width;
+
+    point_cloud_msg.fields.push_back(make_point_field("x", 0, 7)); //Float32
+    point_cloud_msg.fields.push_back(make_point_field("y", 4, 7)); //Float32
+    point_cloud_msg.fields.push_back(make_point_field("z", 8, 7)); //Float32
+    point_cloud_msg.fields.push_back(make_point_field("intensity", 12, 7)); //Float32
+
+    int data_size_in_bytes = point_step*point_cloud_msg.height*point_cloud_msg.width;
+    point_cloud_msg.data.resize(data_size_in_bytes);
+
+    float* point_cloud_data_ptr = reinterpret_cast<float*>(&point_cloud_msg.data[0]);
+
+    for (int i = 0; i < 4*point_cloud_msg.width; i++)
     {
-        laser_scan.ranges.push_back(0);
-        laser_scan.intensities.push_back(0);
+        point_cloud_data_ptr[i] = std::numeric_limits<float>::quiet_NaN();
     }
 
     driver->startMotor();
@@ -168,7 +235,7 @@ int main(int argc, char** argv)
     }
 
     ros::NodeHandle nh;
-    ros::Publisher publisher = nh.advertise<sensor_msgs::LaserScan>("output_topic", 1000);
+    ros::Publisher publisher = nh.advertise<sensor_msgs::PointCloud2>("output_topic", 1000);
 
     ros::Rate loop_rate(15);
     uint32_t result;
@@ -188,35 +255,37 @@ int main(int argc, char** argv)
         {
             driver->ascendScanData(nodes, node_count);
 
-            std::fill(laser_scan.ranges.begin(), laser_scan.ranges.end(), 0);
-            std::fill(laser_scan.intensities.begin(), laser_scan.intensities.end(), 0);
+            for (int i = 0; i < 4*point_cloud_msg.width; i++)
+            {
+                point_cloud_data_ptr[i] = std::numeric_limits<float>::quiet_NaN();
+            }
 
-            // Debug variables
-            int numFilled = 0;
-            int maxIdx = 0;
             for (size_t i = 0; i < node_count; i++)
             {
                 // These formulas are blindly copied from the SDK
-                // Not sure if they are right...
-                float distance = nodes[i].dist_mm_q2 / 4.0f;
-                float angle_degrees = nodes[i].angle_z_q14 * 90.0f / (1 << 14);
                 int quality = nodes[i].quality;
+                float distance = nodes[i].dist_mm_q2 / 4.0f;
 
-                if (quality > 1)
+                if (quality > 1 && distance > 0.01)
                 {
-                    int index = (int)((angle_degrees / 360.0) * numberOfPointsPerScan);
-                    laser_scan.ranges[index] = distance;
-                    laser_scan.intensities[index] = quality;
+                    float angle_degrees = nodes[i].angle_z_q14 * 90.0f / (1 << 14);
+                    float angle_rad = angle_degrees * M_PI / 180.0f;
+                
+                    int index = (int)((angle_degrees / 360.0) * static_cast<float>(NUMBER_POINTS_PER_SCAN));
 
-                    maxIdx = std::max(maxIdx, index);
-                    numFilled++;
+                    float* packet = point_cloud_data_ptr + (index * 4);
+
+                    *packet++ = (-1.0f * cos(angle_rad)*distance / 1000.0f) + x_offset_m;
+                    *packet++ = (-1.0f * sin(angle_rad)*distance / 1000.0f) + y_offset_m;
+                    *packet++ = z_offset_m;
+                    *packet = static_cast<float>(quality);
                 }
             }
 
             ros::Time now = ros::Time::now();
-            laser_scan.header.stamp = now;
+            point_cloud_msg.header.stamp = now;
             
-            publisher.publish(laser_scan);
+            publisher.publish(point_cloud_msg);
         }
 
         if (should_continue)
