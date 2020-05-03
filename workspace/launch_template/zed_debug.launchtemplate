@@ -1,0 +1,6 @@
+<launch>
+    <node name="zed_reader" pkg="zed_sensor_reader" type="node" args="-p -f 15">
+    </node>
+
+    <node name="recorder" pkg="rosbag" type="record" args="output_topic_point_cloud output_topic_pose output_topic_sensors -o {rosbag_output_dir}zzz" />
+</launch>
