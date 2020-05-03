@@ -1,5 +1,0 @@
-<launch>
-    <node name="zed_reader" pkg="zed_sensor_reader" type="node" args="-p -f 2" >
-    </node>
-
-</launch>

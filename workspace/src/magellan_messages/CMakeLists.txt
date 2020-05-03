@@ -19,6 +19,8 @@ add_message_files(
     MsgVisualOdometryDebug.msg
     MsgVisualOdometry.msg
     MsgLocalObstacleField.msg
+    MsgZedPose.msg
+    MsgZedSensors.msg
 )
 
 generate_messages(

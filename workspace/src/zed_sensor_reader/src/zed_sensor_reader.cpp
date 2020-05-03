@@ -1,5 +1,6 @@
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/Vector3.h"
+#include "ros/init.h"
 #include "ros/node_handle.h"
 #include "ros/time.h"
 #include "sensor_msgs/PointCloud.h"
@@ -12,25 +13,22 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/ChannelFloat32.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/PointField.h>
 #include <sl/Camera.hpp>
 #include <std_msgs/ColorRGBA.h>
 #include <stdexcept>
-#include <tf/transform_broadcaster.h>
 #include <thread>
 #include <unistd.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include "magellan_messages/MsgZedPose.h"
+#include "magellan_messages/MsgZedSensors.h"
+
 ros::Publisher g_point_cloud_publisher;
 ros::Publisher g_pose_publisher;
-ros::Publisher g_imu_publisher;
-ros::Publisher g_magnetic_field_publisher;
-
-ros::Publisher g_viz_publisher;
+ros::Publisher g_sensors_publisher;
 
 sl::Camera g_camera;
 sl::RuntimeParameters g_runtime_parameters;
@@ -39,6 +37,7 @@ typedef struct capture_parameters
 {
     bool publish_sensors;
     bool publish_pose;
+    bool enable_area_memory;
     int frames_per_second;
 } capture_parameters_t;
 
@@ -120,68 +119,30 @@ void initialize_point_cloud_msg(sensor_msgs::PointCloud2 &point_cloud_msg, const
     }
 }
 
-void initialize_visualization(visualization_msgs::MarkerArray &marker_array_msg)
-{
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = g_frame_id;
-    marker.ns = "viz";
-    marker.id = 1;
-    marker.type = 9; //TEXT
-    marker.action = 0;
-
-    geometry_msgs::Pose p;
-    p.position.x = 0.0f;
-    p.position.y = 0.0f;
-    p.position.z = 1.0f;
-    marker.pose = p;
-
-    geometry_msgs::Vector3 v;
-    v.x = 1.0f;
-    v.y = 1.0f;
-    v.z = 1.0f;
-    marker.scale = v;
-
-    std_msgs::ColorRGBA c;
-    c.r = 1;
-    c.b = 1;
-    c.g = 1;
-    c.a = 1;
-    marker.color = c;
-
-    marker.lifetime = ros::Duration(0);
-    marker.frame_locked = true;
-
-    marker_array_msg.markers.resize(1);
-    marker_array_msg.markers[0] = marker;
-}
-
 void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
 {
     sl::Mat point_cloud;
     sl::Pose pose;
 
     sensor_msgs::PointCloud2 point_cloud_msg;
-    geometry_msgs::PoseWithCovarianceStamped pose_msg;
-    visualization_msgs::MarkerArray marker_array_msg;
-
-    static tf::TransformBroadcaster br;
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(0, 0, 0));
-    tf::Quaternion q;
-    q.setW(1);
-    q.setX(0);
-    q.setY(0);
-    q.setZ(0);
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "zed"));
-
+    magellan_messages::MsgZedPose pose_msg;
+    
+    pose_msg.header.frame_id = g_frame_id;
     pose_msg.header.frame_id = g_frame_id;
 
     const int height = 720;
     const int width = 1280;
     
     initialize_point_cloud_msg(point_cloud_msg, height, width);
-    initialize_visualization(marker_array_msg);
+
+    pose_msg.pose.covariance[0] = -1;
+    pose_msg.twist.covariance[0] = -1;
+    for (int i = 1; i < 36; i++)
+    {
+        pose_msg.pose.covariance[i] = 0;
+    }
+    pose_msg.confidence = -1;
+
 
     const int frame_downsample_counter = g_pose_update_rate / capture_parameters.frames_per_second;
     int frame_counter = 0;
@@ -209,6 +170,13 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 sl_vec3_to_ros_point(pose.getTranslation(), pose_msg.pose.pose.position);
                 sl_quat_to_ros_quat(pose.getOrientation(), pose_msg.pose.pose.orientation);
 
+                pose_msg.twist.twist.linear.x  = pose.twist[0];
+                pose_msg.twist.twist.linear.y  = pose.twist[1];
+                pose_msg.twist.twist.linear.z  = pose.twist[2];
+                pose_msg.twist.twist.angular.x = pose.twist[3];
+                pose_msg.twist.twist.angular.y = pose.twist[4];
+                pose_msg.twist.twist.angular.z = pose.twist[5];
+
                 // TODO: Should this be separate message? Or should we publish marker array?
                 // For now putting confidence in xx-yy-zz of covariance
                 // Note that pose_confidence is backwards - 100 == full confidence, 0 == no confidence
@@ -216,24 +184,27 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 //pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
                 //pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
                 
-                marker_array_msg.markers[0].text = "Confidence: " + std::to_string(pose.pose_confidence) + ".";
-
-                transform.setOrigin(tf::Vector3(pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z));
-                transform.setRotation(tf::Quaternion(pose_msg.pose.pose.orientation.x,
-                            pose_msg.pose.pose.orientation.y,
-                            pose_msg.pose.pose.orientation.z,
-                            pose_msg.pose.pose.orientation.w));
-
-                br.sendTransform(tf::StampedTransform(transform, now, "map", "zed"));
+                if (capture_parameters.enable_area_memory)
+                {
+                    pose_msg.confidence = pose.pose_confidence;
+                }
+                else
+                {
+                    for (int i = 0; i < 36; i++)
+                    {
+                        pose_msg.pose.covariance[i] = static_cast<double>(pose.pose_covariance[i]);
+                        pose_msg.twist.covariance[i] = static_cast<double>(pose.twist_covariance[i]);
+                    }
+                }
+                
                 g_pose_publisher.publish(pose_msg);
-                g_viz_publisher.publish(marker_array_msg);
             }
 
             frame_counter++;
             frame_counter %= frame_downsample_counter;
         }
 
-        usleep(5000);
+        ros::spinOnce();
     }
 }
 
@@ -242,18 +213,17 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
 void sensor_grab_thread(const capture_parameters_t &capture_parameters)
 {
     sl::SensorsData sensors_data;
-    sl::Timestamp last_collected_timestamp = -1;
+    sl::Timestamp last_collected_timestamp = 0;
 
-    sensor_msgs::Imu imu_msg;
-    sensor_msgs::MagneticField magnetic_field_msg;
-
-    imu_msg.header.frame_id = g_frame_id;
-    magnetic_field_msg.header.frame_id = g_frame_id;
+    magellan_messages::MsgZedSensors zed_sensor_msg;
+    zed_sensor_msg.header.frame_id = g_frame_id;
 
     for (int i = 0; i < 9; i++)
     {
-        magnetic_field_msg.magnetic_field_covariance[i] = 0;
-        imu_msg.orientation_covariance[i] = 0;
+        zed_sensor_msg.imu.angular_velocity_covariance[i] = 0;
+        zed_sensor_msg.imu.linear_acceleration_covariance[i] = 0;
+        zed_sensor_msg.imu.orientation_covariance[i] = 0;
+        zed_sensor_msg.magnetic_field.magnetic_field_covariance[i] = 0;
     }
 
     while (ros::ok())
@@ -263,24 +233,25 @@ void sensor_grab_thread(const capture_parameters_t &capture_parameters)
         {
             if (sensors_data.imu.timestamp > last_collected_timestamp)
             {
-                ros::Time now = ros::Time::now();
+                zed_sensor_msg.header.stamp = ros::Time::now();
 
-                imu_msg.header.stamp = now;
-                magnetic_field_msg.header.stamp = now;
+                sl_vec3_to_ros_vec3(sensors_data.imu.angular_velocity, zed_sensor_msg.imu.angular_velocity);
+                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.angular_velocity_covariance, zed_sensor_msg.imu.angular_velocity_covariance);
 
-                sl_vec3_to_ros_vec3(sensors_data.imu.angular_velocity, imu_msg.angular_velocity);
-                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.angular_velocity_covariance, imu_msg.angular_velocity_covariance);
+                sl_vec3_to_ros_vec3(sensors_data.imu.linear_acceleration, zed_sensor_msg.imu.linear_acceleration);
+                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.linear_acceleration_covariance, zed_sensor_msg.imu.linear_acceleration_covariance);
 
-                sl_vec3_to_ros_vec3(sensors_data.imu.linear_acceleration, imu_msg.linear_acceleration);
-                sl_cov_mat_to_ros_cov_mat(sensors_data.imu.linear_acceleration_covariance, imu_msg.linear_acceleration_covariance);
+                sl_vec3_to_ros_vec3(sensors_data.magnetometer.magnetic_field_calibrated, zed_sensor_msg.magnetic_field.magnetic_field);
 
-                sl_vec3_to_ros_vec3(sensors_data.magnetometer.magnetic_field_calibrated, magnetic_field_msg.magnetic_field);
-                
-                g_imu_publisher.publish(imu_msg);
-                g_magnetic_field_publisher.publish(magnetic_field_msg);
+                zed_sensor_msg.pressure = sensors_data.barometer.pressure;
+                zed_sensor_msg.temperature = sensors_data.temperature.temperature_map[sl::SensorsData::TemperatureData::SENSOR_LOCATION::IMU];
+                zed_sensor_msg.relative_altitude = sensors_data.barometer.relative_altitude;
+
+                g_sensors_publisher.publish(zed_sensor_msg);
             }
         }
 
+        // TODO: is getSensorsData() blocking?
         usleep(1000);
     }
 }
@@ -290,8 +261,7 @@ sl::ERROR_CODE init_camera(const capture_parameters_t &parameters)
     sl::InitParameters init_parameters;
     init_parameters.camera_fps = 60; // Maximum accuracy for pose calculations. Will downsample for point cloud.
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
-    //init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
-    init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Z_UP_X_FWD;
+    init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
     init_parameters.coordinate_units = sl::UNIT::METER;
     init_parameters.depth_minimum_distance = 0.2;
     init_parameters.depth_maximum_distance = 20;
@@ -314,7 +284,7 @@ sl::ERROR_CODE init_positional_tracking(const capture_parameters_t &parameters)
     }
 
     sl::PositionalTrackingParameters position_tracking_parameters;
-    position_tracking_parameters.enable_area_memory = true;
+    position_tracking_parameters.enable_area_memory = parameters.enable_area_memory;
     position_tracking_parameters.enable_imu_fusion = true;
     position_tracking_parameters.enable_pose_smoothing = true;
     position_tracking_parameters.set_floor_as_origin = false;
@@ -330,13 +300,17 @@ int main(int argc, char** argv)
     capture_parameters.frames_per_second = 50;
     capture_parameters.publish_pose = false;
     capture_parameters.publish_sensors = false;
+    capture_parameters.enable_area_memory = true;
 
     // TODO: args
     int c;
-    while ((c = getopt(argc, argv, "psf:")) != -1)
+    while ((c = getopt(argc, argv, "dpsf:")) != -1)
     {
         switch (c)
         {
+            case 'd':
+                capture_parameters.enable_area_memory = false;
+                break;
             case 'p':
                 capture_parameters.publish_pose = true;
                 break;
@@ -402,17 +376,15 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     g_point_cloud_publisher = nh.advertise<sensor_msgs::PointCloud2>("output_topic_point_cloud", 1000);
-    g_viz_publisher = nh.advertise<visualization_msgs::MarkerArray>("output_viz", 1000);
 
     if (capture_parameters.publish_pose)
     {
-        g_pose_publisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("output_topic_pose", 1000);
+        g_pose_publisher = nh.advertise<magellan_messages::MsgZedPose>("output_topic_pose", 1000);
     }
 
     if (capture_parameters.publish_sensors)
     {
-        g_imu_publisher = nh.advertise<sensor_msgs::Imu>("output_topic_imu", 1000);
-        g_magnetic_field_publisher = nh.advertise<sensor_msgs::MagneticField>("output_topic_mag_field", 1000);
+        g_sensors_publisher = nh.advertise<magellan_messages::MsgZedSensors>("output_topic_sensors", 1000);
     }
     
     std::thread image_publish_thread(image_pose_grab_thread, capture_parameters);
