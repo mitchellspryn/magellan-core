@@ -19,7 +19,7 @@ else
         PYTHON_LIBRARY="/usr/lib/aarch64-linux-gnu/libpython3.6m.so"
     fi
 
-    catkin_make clean -DCMAKE_MODULE_PATH=$CMAKE_MODULE_DIR
+    #catkin_make clean -DCMAKE_MODULE_PATH=$CMAKE_MODULE_DIR
     catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m -DPYTHON_LIBRARY=$PYTHON_LIBRARY -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MODULE_PATH=$CMAKE_MODULE_DIR
 
     # Force regen of the launch files only if on jetson
