@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import serial
 import subprocess
 import argparse
@@ -5,6 +6,12 @@ import colorama
 import os
 import shutil
 import uuid
+
+find_zed = True
+try:
+    import pyzed.sl as sl
+except:
+    find_zed = False
 
 NODES_OF_INTEREST = ['ttyACM0', 'ttyACM1', 'ttyACM2', 'ttyACM3', 'video1', 'video2', 'ttyUSB0']
 
@@ -94,6 +101,25 @@ def get_arduino_node(listings):
                 return potential_node
 
     return None
+
+# Not actually a node, but check if it's available.
+def get_zed_node(listings):
+    global find_zed
+    result = None
+
+    zed = sl.Camera()
+    init_params = sl.InitParameters()
+    init_params.sdk_verbose = False
+
+    err = zed.open(init_params)
+    if err == sl.ERROR_CODE.SUCCESS:
+        result = zed.get_camera_information().serial_number
+        zed.close()
+
+    if ((result == None) and (not find_zed)):
+        result = 'disabled'
+
+    return result
 
 def get_video_node(listings):
     # TODO: is there a better way to distinguish the logitech camera from something else?
@@ -212,6 +238,7 @@ def main():
     node_mappings['right_motor'] = get_motor_controller_node(listings, 128)
     node_mappings['ground_camera'] = get_video_node(listings)
     node_mappings['mass_storage'] = get_mass_storage_path()
+    node_mappings['zed'] = get_zed_node(listings)
 
     # TODO: list the xtion
 
