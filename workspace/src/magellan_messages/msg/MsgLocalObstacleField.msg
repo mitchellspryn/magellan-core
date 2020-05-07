@@ -1,13 +1,15 @@
 Header header
+
+# Real world grid bounds
+geometry_msgs/Point32 grid_top_left_coords
+geometry_msgs/Point32 grid_bottom_right_coords
+
+# Number of cells in the grid
 uint32 width
 uint32 height
 
-# Number of points per meter
-# Assumed to be evenly distributed around center.
-uint32 width_scale
-uint32 height_scale
-
-# 0 = no obstacle
-# 1 = obstacle
-# 2 = goal point
-uint8[] occupancy_matrix
+# Index into the grid, in row-major order
+uint32[] cone_points
+uint32[] cone_ids
+uint32[] other_obstacle_point
+uint32[] other_obstacle_ids
