@@ -188,13 +188,11 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 {
                     pose_msg.confidence = pose.pose_confidence;
                 }
-                else
+                
+                for (int i = 0; i < 36; i++)
                 {
-                    for (int i = 0; i < 36; i++)
-                    {
-                        pose_msg.pose.covariance[i] = static_cast<double>(pose.pose_covariance[i]);
-                        pose_msg.twist.covariance[i] = static_cast<double>(pose.twist_covariance[i]);
-                    }
+                    pose_msg.pose.covariance[i] = static_cast<double>(pose.pose_covariance[i]);
+                    pose_msg.twist.covariance[i] = static_cast<double>(pose.twist_covariance[i]);
                 }
                 
                 g_pose_publisher.publish(pose_msg);

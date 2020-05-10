@@ -19,8 +19,6 @@ catkin_package(
     CATKIN_DEPENDS roscpp image_transport cv_bridge message_generation sensor_msgs magellan_messages visualization_msgs tf
 )
 
-SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
-
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}

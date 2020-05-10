@@ -1,20 +1,18 @@
-#include "ros/publisher.h"
-#include "ros/subscriber.h"
+#include <ros/ros.h>
 #include "sensor_msgs/PointCloud.h"
 #include "tf/LinearMath/Quaternion.h"
 #include "tf/LinearMath/Vector3.h"
 #include "tf/transform_datatypes.h"
-#include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
-
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <tf/transform_broadcaster.h>
+#include <memory>
 
 #include <magellan_messages/MsgZedPose.h>
 #include <magellan_messages/MsgZedSensors.h>
@@ -28,7 +26,18 @@ ros::Publisher g_zed_pose_publisher;
 
 ros::Publisher g_rplidar_point_cloud_publisher;
 
-tf::TransformBroadcaster g_transform_broadcaster;
+// this needs to be initialized after ros::init() has been called
+std::unique_ptr<tf::TransformBroadcaster> g_transform_broadcaster = nullptr;
+
+sensor_msgs::PointField make_point_field(const std::string &name, const unsigned int offset, const unsigned int datatype)
+{
+    sensor_msgs::PointField pf;
+    pf.count = 1;
+    pf.datatype = datatype;
+    pf.offset = offset;
+    pf.name = name;
+    return pf;
+}
 
 void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incoming_msg)
 {
@@ -60,6 +69,15 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
 
     // Invert the Y axis for visualization in rviz
     sensor_msgs::PointCloud2 cloud_msg(*incoming_msg);
+
+    // RVIZ doesn't have very many options when it comes to visualizing RGB point clouds.
+    // We need to reformat into an "RGB" field that is 4 bytes wide
+    // where the bytes are xBGR
+    cloud_msg.fields.clear();
+    cloud_msg.fields.push_back(make_point_field("x", 0, 7)); //Float32
+    cloud_msg.fields.push_back(make_point_field("y", 4, 7));
+    cloud_msg.fields.push_back(make_point_field("z", 8, 7));
+    cloud_msg.fields.push_back(make_point_field("rgb", 12, 7));
     
     float* point_cloud_data_float = reinterpret_cast<float*>(cloud_msg.data.data());
     point_cloud_data_float++;
@@ -67,6 +85,19 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     {
         *point_cloud_data_float = *point_cloud_data_float * -1;
         point_cloud_data_float += cloud_msg.point_step / sizeof(float);
+    }
+
+    unsigned char* workptr = reinterpret_cast<unsigned char*>(cloud_msg.data.data());
+    workptr += 12;
+    for (int i = 0; i < num_points; i++) {
+        
+        // Go from RGBA => xBGR
+        workptr[3] = workptr[0];
+        workptr[0] = workptr[2];
+        workptr[2] = workptr[1];
+        workptr[1] = workptr[0];
+        
+        workptr += 16;
     }
 
     cloud_msg.header.frame_id = g_local_frame_id;
@@ -112,10 +143,14 @@ void transform_zed_pose(const magellan_messages::MsgZedPose::ConstPtr &incoming_
                 out_msg.pose.pose.orientation.z, 
                 out_msg.pose.pose.orientation.w));
 
-    g_transform_broadcaster.sendTransform(tf::StampedTransform(
+    if (g_transform_broadcaster == nullptr) {
+        g_transform_broadcaster = std::unique_ptr<tf::TransformBroadcaster>(new tf::TransformBroadcaster());
+    }
+
+    g_transform_broadcaster->sendTransform(tf::StampedTransform(
                 transform, out_msg.header.stamp, g_global_frame_id, g_local_frame_id));
 
-    g_zed_pose_publisher.publish(out_msg.pose);
+    g_zed_pose_publisher.publish(out_msg);
 }
 
 void transform_rplidar_scan(const sensor_msgs::PointCloud2::ConstPtr &incoming_msg)
@@ -141,7 +176,7 @@ int main(int argc, char** argv)
 
     ros::NodeHandle nh;
     
-    g_zed_pose_publisher = nh.advertise<sensor_msgs::PointCloud2>("output_zed_point_cloud", 10);
+    g_zed_point_cloud_publisher = nh.advertise<sensor_msgs::PointCloud2>("output_zed_point_cloud", 10);
     g_zed_image_publisher = nh.advertise<sensor_msgs::Image>("output_zed_image", 10);
     g_zed_pose_publisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("output_zed_pose", 10);
     g_rplidar_point_cloud_publisher = nh.advertise<sensor_msgs::PointCloud2>("output_rplidar_point_cloud", 10);

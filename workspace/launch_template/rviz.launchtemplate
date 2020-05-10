@@ -1,0 +1,11 @@
+<launch>
+    <node name="magellan_rviz" pkg="magellan_rviz" type="node">
+        <remap from="input_zed_point_cloud" to="zed_sensor_reader/output_topic_point_cloud" />
+        <remap from="input_zed_pose" to="zed_sensor_reader/output_topic_pose" />
+        <remap from="input_rplidar_point_cloud" to="/rplidar_sensor_reader/output_topic" />
+        <remap from="output_zed_point_cloud" to="rviz/output_zed_point_cloud" />
+        <remap from="output_zed_image" to="rviz/output_zed_image" />
+        <remap from="output_zed_pose" to="rviz/output_zed_pose" />
+        <remap from="output_rplidar_point_cloud" to="rviz/output_rplidar_point_cloud" />
+    </node>
+</launch>
