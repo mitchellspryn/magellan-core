@@ -110,7 +110,7 @@ void transform_zed_pose(const magellan_messages::MsgZedPose::ConstPtr &incoming_
 {
     geometry_msgs::PoseWithCovarianceStamped out_msg;
     out_msg.header.stamp = incoming_msg->header.stamp;
-    out_msg.header.frame_id = g_local_frame_id;
+    out_msg.header.frame_id = g_global_frame_id;
 
     out_msg.pose.pose.position = incoming_msg->pose.pose.position;
     out_msg.pose.pose.orientation = incoming_msg->pose.pose.orientation;
@@ -156,6 +156,8 @@ void transform_zed_pose(const magellan_messages::MsgZedPose::ConstPtr &incoming_
 void transform_rplidar_scan(const sensor_msgs::PointCloud2::ConstPtr &incoming_msg)
 {
     sensor_msgs::PointCloud2 output_msg(*incoming_msg);
+
+    output_msg.header.frame_id = g_local_frame_id;
 
     // Flip the scan over the Y axis
     float* point_cloud_data_float = reinterpret_cast<float*>(output_msg.data.data());
