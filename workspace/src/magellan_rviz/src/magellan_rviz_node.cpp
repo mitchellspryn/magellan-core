@@ -92,10 +92,19 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     for (int i = 0; i < num_points; i++) {
         
         // Go from RGBA => xBGR
-        workptr[3] = workptr[0];
-        workptr[0] = workptr[2];
-        workptr[2] = workptr[1];
-        workptr[1] = workptr[0];
+        //workptr[3] = workptr[0];
+        //workptr[0] = workptr[2];
+        //workptr[2] = workptr[1];
+        //workptr[1] = workptr[0];
+        
+        //workptr[3] = workptr[2];
+        //workptr[2] = workptr[1];
+        //workptr[1] = workptr[0];
+        //workptr[0] = 0;
+        
+        char t = workptr[2];
+        workptr[2] = workptr[0];
+        workptr[0] = t;
         
         workptr += 16;
     }
