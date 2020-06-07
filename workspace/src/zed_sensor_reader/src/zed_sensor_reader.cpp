@@ -39,8 +39,6 @@ typedef struct capture_parameters
     bool publish_sensors;
     bool publish_pose;
     bool enable_area_memory;
-    bool fill_in_camera_pixels;
-    bool fill_in_confidence;
     bool use_external_clock;
     int frames_per_second;
     std::string save_file_name;
@@ -49,6 +47,10 @@ typedef struct capture_parameters
 
 static std::string g_frame_id = "map";
 static constexpr int g_pose_update_rate = 60;
+static constexpr float g_rot_theta = 32.0f;
+static constexpr float deg_to_rad = M_PI / 180.0f;
+static constexpr float cos_g_rot_theta = 0.848048096156425970386176178690386448728712055956245359051f; // cos(-32 degrees)
+static constexpr float sin_g_rot_theta = -0.52991926423320495404678115181608666877201754995879996476; // sin(-32 degrees)
 
 std::string sl_err_to_string(sl::ERROR_CODE error_code)
 {
@@ -184,17 +186,21 @@ void initialize_point_cloud_msg(sensor_msgs::PointCloud2 &point_cloud_msg, const
     point_cloud_msg.is_bigendian = false;
     point_cloud_msg.is_dense = true; // TODO: Is this right?
 
-    int point_step = 16;
+    int point_step = 32;
     point_cloud_msg.point_step = point_step;
     point_cloud_msg.row_step = point_step * width;
 
     point_cloud_msg.fields.push_back(make_point_field("x", 0, 7)); //Float32
     point_cloud_msg.fields.push_back(make_point_field("y", 4, 7));
     point_cloud_msg.fields.push_back(make_point_field("z", 8, 7));
-    point_cloud_msg.fields.push_back(make_point_field("r", 12, 2)); //Uint8
-    point_cloud_msg.fields.push_back(make_point_field("g", 13, 2)); 
-    point_cloud_msg.fields.push_back(make_point_field("b", 14, 2)); 
-    point_cloud_msg.fields.push_back(make_point_field("confidence", 15, 2)); 
+    point_cloud_msg.fields.push_back(make_point_field("nx", 12, 7));
+    point_cloud_msg.fields.push_back(make_point_field("ny", 16, 7));
+    point_cloud_msg.fields.push_back(make_point_field("nz", 20, 7));
+    point_cloud_msg.fields.push_back(make_point_field("confidence", 24, 7)); 
+    point_cloud_msg.fields.push_back(make_point_field("r", 28, 2)); //Uint8
+    point_cloud_msg.fields.push_back(make_point_field("g", 29, 2)); 
+    point_cloud_msg.fields.push_back(make_point_field("b", 30, 2)); 
+    point_cloud_msg.fields.push_back(make_point_field("a", 31, 2)); 
 
     point_cloud_msg.data.resize(point_step * width * height);
 
@@ -210,6 +216,7 @@ void initialize_point_cloud_msg(sensor_msgs::PointCloud2 &point_cloud_msg, const
 void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
 {
     sl::Mat point_cloud;
+    sl::Mat normals;
     sl::Mat image;
     sl::Mat confidence;
     sl::Pose pose;
@@ -222,7 +229,7 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
 
     const int height = 720;
     const int width = 1280;
-    
+
     initialize_point_cloud_msg(point_cloud_msg, height, width);
 
     pose_msg.pose.covariance[0] = -1;
@@ -270,46 +277,58 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
             {
                 point_cloud_msg.header.stamp = now;
                 g_camera.retrieveMeasure(point_cloud, sl::MEASURE::XYZRGBA);
-                memcpy(static_cast<void*>(&point_cloud_msg.data[0]), point_cloud.getPtr<sl::float4>(), height*width*4*sizeof(float));
+                g_camera.retrieveMeasure(confidence, sl::MEASURE::CONFIDENCE);
+                g_camera.retrieveImage(image, sl::VIEW::LEFT);
+                g_camera.retrieveMeasure(normals, sl::MEASURE::NORMALS);
 
-                if (capture_parameters.fill_in_camera_pixels) 
+                uint8_t* out_buf_ptr = point_cloud_msg.data.data();
+
+                sl::float4* point_cloud_ptr = point_cloud.getPtr<sl::float4>();
+                sl::float1* confidence_ptr = point_cloud.getPtr<sl::float1>();
+                sl::uchar4* image_ptr = image.getPtr<sl::uchar4>();
+                sl::float4* normals_ptr = point_cloud.getPtr<sl::float4>();
+
+                for (int y = 0; y < height; y++)
                 {
-                    g_camera.retrieveImage(image, sl::VIEW::LEFT);
-                    unsigned char* point_cloud_data = static_cast<unsigned char*>(&point_cloud_msg.data[0]);
-                    sl::float3* image_data = image.getPtr<sl::float3>();
-
-                    point_cloud_data += 12;
-
-                    for (int y = 0; y < height; y++) 
+                    for (int x = 0; x < width; x++)
                     {
-                        for (int x = 0; x < width; x++) 
-                        {
-                            *point_cloud_data++ = image_data->r;
-                            *point_cloud_data++ = image_data->g;
-                            *point_cloud_data++ = image_data->b;
+                        float pty = point_cloud_ptr->y;
+                        float ptz = point_cloud_ptr->z;
 
-                            point_cloud_data += 13;
-                            image_data++;
-                        }
-                    }
-                }
+                        float newy = (cos_g_rot_theta*pty) - (sin_g_rot_theta*ptz);
+                        float newz = (sin_g_rot_theta*pty) + (cos_g_rot_theta*ptz);
 
-                if (capture_parameters.fill_in_confidence)
-                {
-                    g_camera.retrieveMeasure(confidence, sl::MEASURE::CONFIDENCE);
+                        float ptny = normals_ptr->y;
+                        float ptnz = normals_ptr->z;
 
-                    unsigned char* point_cloud_data = static_cast<unsigned char*>(&point_cloud_msg.data[0]);
-                    sl::float1* confidence_data = confidence.getPtr<sl::float1>();
+                        float newny = (cos_g_rot_theta*ptny) - (sin_g_rot_theta*ptnz);
+                        float newnz = (sin_g_rot_theta*ptny) + (cos_g_rot_theta*ptnz);
 
-                    point_cloud_data += 15;
+                        memcpy(out_buf_ptr, &(point_cloud_ptr->x), 4);
+                        out_buf_ptr += 4;
+                        memcpy(out_buf_ptr, &newy, 4);
+                        out_buf_ptr += 4;
+                        memcpy(out_buf_ptr, &newz, 4);
+                        out_buf_ptr += 4;
 
-                    for (int y = 0; y< height; y++)
-                    {
-                        for (int x = 0; x < width; x++)
-                        {
-                            *point_cloud_data = static_cast<unsigned char>(100.0f - (*confidence_data));
-                            point_cloud_data += 16;
-                        }
+                        memcpy(out_buf_ptr, &(normals_ptr->x), 4);
+                        out_buf_ptr += 4;
+                        memcpy(out_buf_ptr, &newny, 4);
+                        out_buf_ptr += 4;
+                        memcpy(out_buf_ptr, &newnz, 4);
+                        out_buf_ptr += 4;
+
+                        float rectified_confidence = 100.0f - (*confidence_ptr);
+                        memcpy(out_buf_ptr, &rectified_confidence, 4);
+                        out_buf_ptr += 4;
+
+                        memcpy(out_buf_ptr, image_ptr, 4);
+                        out_buf_ptr += 4;
+
+                        ++point_cloud_ptr;
+                        ++normals_ptr;
+                        ++image_ptr;
+                        ++confidence_ptr;
                     }
                 }
 
@@ -338,10 +357,7 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 //pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
                 //pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
                 
-                if (capture_parameters.enable_area_memory)
-                {
-                    pose_msg.confidence = pose.pose_confidence;
-                }
+                pose_msg.confidence = pose.pose_confidence;
                 
                 for (int i = 0; i < 36; i++)
                 {
@@ -454,6 +470,11 @@ sl::ERROR_CODE init_positional_tracking(const capture_parameters_t &parameters)
     position_tracking_parameters.enable_imu_fusion = true;
     position_tracking_parameters.enable_pose_smoothing = true;
     position_tracking_parameters.set_floor_as_origin = false;
+
+    sl::Transform pose_to_world_transform;
+    pose_to_world_transform.setTranslation(sl::Translation(0, 0, 0));
+    pose_to_world_transform.setRotation(sl::Rotation(g_rot_theta * deg_to_rad, sl::Translation(1, 0, 0)));
+    position_tracking_parameters.initial_world_transform = pose_to_world_transform;
 
     return g_camera.enablePositionalTracking(position_tracking_parameters);
 }

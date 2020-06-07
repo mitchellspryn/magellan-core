@@ -58,16 +58,15 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     unsigned char* image_msg_data = &zed_image_msg.data[0];
     int num_points = incoming_msg->width * incoming_msg->height;
 
-    point_cloud_data += 14;
+    point_cloud_data += 28;
     for (int i = 0; i < num_points; i++)
     {
         *image_msg_data++ = *(point_cloud_data--);
         *image_msg_data++ = *(point_cloud_data--);
         *image_msg_data++ = *(point_cloud_data);
-        point_cloud_data += 18;
+        point_cloud_data += 30;
     }
 
-    // Invert the Y axis for visualization in rviz
     sensor_msgs::PointCloud2 cloud_msg(*incoming_msg);
 
     // RVIZ doesn't have very many options when it comes to visualizing RGB point clouds.
@@ -77,8 +76,13 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     cloud_msg.fields.push_back(make_point_field("x", 0, 7)); //Float32
     cloud_msg.fields.push_back(make_point_field("y", 4, 7));
     cloud_msg.fields.push_back(make_point_field("z", 8, 7));
-    cloud_msg.fields.push_back(make_point_field("rgb", 12, 7));
+    cloud_msg.fields.push_back(make_point_field("nx", 12, 7));
+    cloud_msg.fields.push_back(make_point_field("ny", 16, 7));
+    cloud_msg.fields.push_back(make_point_field("nz", 20, 7));
+    cloud_msg.fields.push_back(make_point_field("confidence", 24, 7)); 
+    cloud_msg.fields.push_back(make_point_field("rgb", 28, 7));
     
+    // Invert the Y axis for visualization in rviz
     float* point_cloud_data_float = reinterpret_cast<float*>(cloud_msg.data.data());
     point_cloud_data_float++;
     for (int i = 0; i < num_points; i++)
@@ -88,7 +92,7 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     }
 
     unsigned char* workptr = reinterpret_cast<unsigned char*>(cloud_msg.data.data());
-    workptr += 12;
+    workptr += 28;
     for (int i = 0; i < num_points; i++) {
         
         // Go from RGBA => xBGR
@@ -106,7 +110,7 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
         workptr[2] = workptr[0];
         workptr[0] = t;
         
-        workptr += 16;
+        workptr += 32;
     }
 
     cloud_msg.header.frame_id = g_local_frame_id;
