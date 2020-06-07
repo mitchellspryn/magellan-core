@@ -4,10 +4,56 @@
 #include "sensor_msgs/PointCloud.h"
 #include "sensor_msgs/PointCloud2.h"
 #include <cmath>
+#include <stdexcept>
+
+ObstacleDetector::ObstacleDetector()
+{
+    magellan_messages::MsgObstacleDetectorConfig default_config;
+
+    float deg_to_rad = M_PI / 180.0f;
+    float in_to_m = 0.0254f;
+
+    default_config.point_min_confidence = 50;
+    default_config.point_max_distance = 20;
+    default_config.normals_traversable_thresh = 10 * deg_to_rad;
+    default_config.normals_untraversable_thresh = 30 * deg_to_rad;
+    default_config.floodfill_square_start_size = 200;
+    default_config.max_floodfill_neighbor_distance = 4.0 * in_to_m; 
+    default_config.max_floodfill_neighbor_angle = 10 * deg_to_rad;
+    default_config.max_cone_neighbor_distance = 5.0 * in_to_m;
+    default_config.max_cone_aspect_ratio = 0.75;
+    default_config.min_cone_point_count = 500;
+    default_config.min_cone_hue = 95;
+    default_config.max_cone_hue = 105;
+    default_config.min_cone_ls_sum = 275;
+    default_config.min_cone_luminance = 60;
+    default_config.max_cone_luminance = 160;
+    default_config.min_occupancy_matrix_num_points = 10;
+    default_config.occupancy_matrix_grid_square_size = 3.0 * in_to_m;
+
+    this->set_internal_parameters(default_config);
+}
 
 void ObstacleDetector::set_internal_parameters(
         const magellan_messages::MsgObstacleDetectorConfig &parameters)
 {
+    this->point_min_confidence = parameters.point_min_confidence;
+    this->point_max_distance_sq = parameters.point_max_distance * parameters.point_max_distance;
+    this->cos_normals_traversable_thresh = cos(parameters.normals_traversable_thresh);
+    this->cos_normals_untraversable_thresh = cos(parameters.normals_untraversable_thresh);
+    this->floodfill_square_start_size = parameters.floodfill_square_start_size;
+    this->max_floodfill_neighbor_distance_sq = parameters.max_floodfill_neighbor_distance * parameters.max_floodfill_neighbor_distance;
+    this->min_floodfill_norm_dot = cos(parameters.max_floodfill_neighbor_angle);
+    this->max_cone_neighbor_distance_sq = parameters.max_cone_neighbor_distance * parameters.max_cone_neighbor_distance;
+    this->max_cone_aspect_ratio = parameters.max_cone_aspect_ratio;
+    this->min_cone_point_count = parameters.min_cone_point_count;
+    this->min_cone_hue = parameters.min_cone_hue;
+    this->max_cone_hue = parameters.max_cone_hue;
+    this->min_cone_ls_sum = parameters.min_cone_ls_sum;
+    this->min_cone_luminance = parameters.min_cone_luminance;
+    this->max_cone_luminance = parameters.max_cone_luminance;
+    this->min_occupancy_matrix_num_points = parameters.min_occupancy_matrix_num_points;
+    this->occupancy_matrix_grid_square_size = parameters.occupancy_matrix_grid_square_size;
 }
 
 bool ObstacleDetector::detect(
@@ -34,10 +80,55 @@ bool ObstacleDetector::detect(
     return true;
 }
 
-sensor_msgs::PointCloud2 debug_annotate (
+sensor_msgs::PointCloud2 ObstacleDetector::debug_annotate (
         const sensor_msgs::PointCloud2 &stereo_camera_point_cloud)
 {
+    sensor_msgs::PointCloud2 output_cloud(stereo_camera_point_cloud);
 
+    StereoVisionPoint_t* ptr = reinterpret_cast<StereoVisionPoint_t*>(output_cloud.data.data());
+
+    for (int i = 0; i < this->num_points; i++)
+    {
+        // If it's a cone, color by cone id
+        int cone_id = this->point_metadata[i].cone_id;
+        TraversabilityClassification_t traversability = this->point_metadata[i].traversability;
+        switch (cone_id)
+        {
+            case -1:
+                switch (traversability)
+                {
+                    case UNSAFE:
+                        ptr->rgba_color = 0xFF0000FF;
+                        break;
+                    case SAFE:
+                        ptr->rgba_color = 0x00FF00FF;
+                        break;
+                    case UNSET:
+                        throw std::runtime_error("Should not be unset here.");
+                    default:
+                        throw std::runtime_error("Unexpected traversability type.");
+                }
+            case 0:
+                throw std::runtime_error("Should not have cone_id of 0 here.");
+            case 1:
+                ptr->rgba_color = 0xFF00FFFF;
+                break;
+            case 2:
+                ptr->rgba_color = 0x00FFFFFF;
+                break;
+            case 3:
+                ptr->rgba_color = 0xFFA500FF;
+                break;
+            case 4:
+                ptr->rgba_color = 0xFFFF00FF;
+            default:
+                throw std::runtime_error("Unexpected cone_id value: " + std::to_string(cone_id) + ".");
+        }
+
+        ptr++;
+    }
+
+    return output_cloud;
 }
 
 void ObstacleDetector::fill_stereo_metadata(const StereoVisionPoint_t* stereo_cloud)

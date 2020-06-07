@@ -28,6 +28,8 @@
 class ObstacleDetector
 {
     public:
+        ObstacleDetector();
+
         void set_internal_parameters(
                 const magellan_messages::MsgObstacleDetectorConfig &parameters);
 

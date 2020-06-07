@@ -25,10 +25,21 @@ include_directories(
 )
 
 add_executable(${PROJECT_NAME}_node src/ros_node.cpp
-    )
+    src/obstacle_detector.cpp
+)
 
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 target_link_libraries(${PROJECT_NAME}_node
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+)
+
+add_executable(${PROJECT_NAME}_debug src/debug_node.cpp
+    src/obstacle_detector.cpp
+)
+
+set_target_properties(${PROJECT_NAME}_debug PROPERTIES OUTPUT_NAME debug PREFIX "")
+target_link_libraries(${PROJECT_NAME}_debug
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
 )

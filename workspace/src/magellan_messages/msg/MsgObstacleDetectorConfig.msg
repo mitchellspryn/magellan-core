@@ -3,6 +3,7 @@ float32 point_min_confidence
 float32 point_max_distance
 float32 normals_traversable_thresh
 float32 normals_untraversable_thresh
+float32 floodfill_square_start_size
 float32 max_floodfill_neighbor_angle
 float32 max_floodfill_neighbor_distance
 float32 min_cone_hue
