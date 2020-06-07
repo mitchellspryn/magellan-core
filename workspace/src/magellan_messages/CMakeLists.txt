@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
     rospy
     std_msgs
     geometry_msgs
+    nav_msgs
     sensor_msgs
     message_generation
 )
@@ -16,6 +17,8 @@ add_message_files(
     MsgSerialPortLine.msg
     MsgMagellanImu.msg
     MsgMagellanDrive.msg
+    MsgObstacleDetectorConfig.msg
+    MsgObstacleDetection.msg
     MsgVisualOdometryDebug.msg
     MsgVisualOdometry.msg
     MsgLocalObstacleField.msg
@@ -28,6 +31,7 @@ generate_messages(
     std_msgs
     geometry_msgs
     sensor_msgs
+    nav_msgs
 )
 
 catkin_package(

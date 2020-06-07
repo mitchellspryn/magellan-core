@@ -1,0 +1,17 @@
+Header header
+float32 point_min_confidence
+float32 point_max_distance
+float32 normals_traversable_thresh
+float32 normals_untraversable_thresh
+float32 max_floodfill_neighbor_angle
+float32 max_floodfill_neighbor_distance
+float32 min_cone_hue
+float32 max_cone_hue
+float32 min_cone_ls_sum
+float32 min_cone_luminance
+float32 max_cone_luminance
+float32 max_cone_neighbor_distance
+float32 max_cone_aspect_ratio
+float32 min_cone_point_count
+float32 min_occupancy_matrix_num_points
+float32 occupancy_matrix_grid_square_size
