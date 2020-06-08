@@ -11,6 +11,6 @@
 
     <node name="zed_reader" pkg="zed_sensor_reader" type="node" args="-p -f 15">
         <remap from="output_topic_point_cloud" to="zed_sensor_reader/output_topic_point_cloud" />
+        <remap from="output_topic_pose" to="zed_sensor_reader/output_topic_pose" />
     </node>
-
 </launch>

@@ -45,3 +45,13 @@ target_link_libraries(${PROJECT_NAME}_node
   ${CUDA_CUDA_LIBRARY}
   ${CUDA_LIBRARY}
 )
+
+add_executable(${PROJECT_NAME}_pcd src/zed_to_pcd.cpp)
+set_target_properties(${PROJECT_NAME}_pcd PROPERTIES OUTPUT_NAME pcd PREFIX "")
+target_link_libraries(${PROJECT_NAME}_pcd
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${ZED_LIBRARIES}
+  ${CUDA_CUDA_LIBRARY}
+  ${CUDA_LIBRARY}
+)

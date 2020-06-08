@@ -193,6 +193,8 @@ void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_na
         output_file << get_pcd_string(data->ny) << " ";
         output_file << get_pcd_string(data->nz) << " ";
         output_file << "\n";
+
+        data++;
     }
 
     output_file.close();

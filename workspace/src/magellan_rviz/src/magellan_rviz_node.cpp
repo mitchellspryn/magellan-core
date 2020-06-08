@@ -61,17 +61,14 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     point_cloud_data += 28;
     for (int i = 0; i < num_points; i++)
     {
-        *image_msg_data++ = *(point_cloud_data--);
-        *image_msg_data++ = *(point_cloud_data--);
-        *image_msg_data++ = *(point_cloud_data);
+        *image_msg_data++ = *point_cloud_data++;
+        *image_msg_data++ = *point_cloud_data++;
+        *image_msg_data++ = *point_cloud_data;
         point_cloud_data += 30;
     }
 
     sensor_msgs::PointCloud2 cloud_msg(*incoming_msg);
 
-    // RVIZ doesn't have very many options when it comes to visualizing RGB point clouds.
-    // We need to reformat into an "RGB" field that is 4 bytes wide
-    // where the bytes are xBGR
     cloud_msg.fields.clear();
     cloud_msg.fields.push_back(make_point_field("x", 0, 7)); //Float32
     cloud_msg.fields.push_back(make_point_field("y", 4, 7));
@@ -89,28 +86,6 @@ void transform_zed_point_cloud(const sensor_msgs::PointCloud2::ConstPtr &incomin
     {
         *point_cloud_data_float = *point_cloud_data_float * -1;
         point_cloud_data_float += cloud_msg.point_step / sizeof(float);
-    }
-
-    unsigned char* workptr = reinterpret_cast<unsigned char*>(cloud_msg.data.data());
-    workptr += 28;
-    for (int i = 0; i < num_points; i++) {
-        
-        // Go from RGBA => xBGR
-        //workptr[3] = workptr[0];
-        //workptr[0] = workptr[2];
-        //workptr[2] = workptr[1];
-        //workptr[1] = workptr[0];
-        
-        //workptr[3] = workptr[2];
-        //workptr[2] = workptr[1];
-        //workptr[1] = workptr[0];
-        //workptr[0] = 0;
-        
-        char t = workptr[2];
-        workptr[2] = workptr[0];
-        workptr[0] = t;
-        
-        workptr += 32;
     }
 
     cloud_msg.header.frame_id = g_local_frame_id;
@@ -138,10 +113,9 @@ void transform_zed_pose(const magellan_messages::MsgZedPose::ConstPtr &incoming_
     // TODO: figure out how to change coordinate system for covariance matrix.
     // We're not computing it for now.
     // TODO: figure out how to draw confidence. If we want to.
-    out_msg.pose.covariance[0] = -1;
-    for (int i = 1; i < 36; i++)
+    for (int i = 0; i < 36; i++)
     {
-        out_msg.pose.covariance[i] = 0;
+        out_msg.pose.covariance[i] = incoming_msg->pose.covariance[i];
     }
 
     tf::Transform transform;

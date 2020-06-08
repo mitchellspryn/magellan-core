@@ -292,28 +292,28 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 {
                     for (int x = 0; x < width; x++)
                     {
-                        float pty = point_cloud_ptr->y;
+                        float ptx = point_cloud_ptr->x;
                         float ptz = point_cloud_ptr->z;
 
-                        float newy = (cos_g_rot_theta*pty) - (sin_g_rot_theta*ptz);
-                        float newz = (sin_g_rot_theta*pty) + (cos_g_rot_theta*ptz);
+                        float newx = (cos_g_rot_theta*ptx) - (sin_g_rot_theta*ptz);
+                        float newz = (sin_g_rot_theta*ptx) + (cos_g_rot_theta*ptz);
 
-                        float ptny = normals_ptr->y;
+                        float ptnx = normals_ptr->x;
                         float ptnz = normals_ptr->z;
 
-                        float newny = (cos_g_rot_theta*ptny) - (sin_g_rot_theta*ptnz);
-                        float newnz = (sin_g_rot_theta*ptny) + (cos_g_rot_theta*ptnz);
+                        float newnx = (cos_g_rot_theta*ptnx) - (sin_g_rot_theta*ptnz);
+                        float newnz = (sin_g_rot_theta*ptnx) + (cos_g_rot_theta*ptnz);
 
-                        memcpy(out_buf_ptr, &(point_cloud_ptr->x), 4);
+                        memcpy(out_buf_ptr, &newx, 4);
                         out_buf_ptr += 4;
-                        memcpy(out_buf_ptr, &newy, 4);
+                        memcpy(out_buf_ptr, &point_cloud_ptr->y, 4);
                         out_buf_ptr += 4;
                         memcpy(out_buf_ptr, &newz, 4);
                         out_buf_ptr += 4;
 
-                        memcpy(out_buf_ptr, &(normals_ptr->x), 4);
+                        memcpy(out_buf_ptr, &newnx, 4);
                         out_buf_ptr += 4;
-                        memcpy(out_buf_ptr, &newny, 4);
+                        memcpy(out_buf_ptr, &normals_ptr->y, 4);
                         out_buf_ptr += 4;
                         memcpy(out_buf_ptr, &newnz, 4);
                         out_buf_ptr += 4;
