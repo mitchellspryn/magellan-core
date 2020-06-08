@@ -7,13 +7,13 @@
 #include <fstream>
 #include <limits>
 #include <math.h>
-#include <map>
 #include <queue>
 #include <ros/ros.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -63,7 +63,6 @@ class ObstacleDetector
         float max_cone_luminance;
         float min_occupancy_matrix_num_points;
         float occupancy_matrix_grid_square_size;
-
 
         StereoVisionPointMetadata_t point_metadata[cloud_width * cloud_height];
 

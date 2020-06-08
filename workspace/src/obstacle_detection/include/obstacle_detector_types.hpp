@@ -36,4 +36,12 @@ typedef struct StereoVisionPointMetadata
     bool is_valid;
 } StereoVisionPointMetadata_t;
 
+typedef struct PointAggregatorType
+{
+    int32_t unsafe_count = 0;
+    int32_t safe_count = 0;
+    int32_t cone_count = 0;
+    int32_t cone_id = 0;
+} PointAggregatorType_t;
+
 #endif

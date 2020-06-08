@@ -16,6 +16,8 @@
 #include "../include/obstacle_detector.hpp"
 #include "sensor_msgs/PointCloud.h"
 
+ObstacleDetector detector;
+
 float pcd_string_to_val(const std::string &val)
 {
     if (val == "nan" || val == "-nan")
@@ -160,7 +162,7 @@ sensor_msgs::PointCloud2 read_pcd(const std::string& file_name)
     return cloud;
 }
 
-void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_name)
+void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_name, bool reverse_y)
 {
     std::ofstream output_file(file_name, std::ios::out | std::ios::binary);
 
@@ -187,10 +189,28 @@ void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_na
         output_file << data->rgba_color << " ";
         output_file << data->confidence << " ";
         output_file << get_pcd_string(data->x) << " ";
-        output_file << get_pcd_string(data->y) << " ";
+
+        if (reverse_y)
+        {
+            output_file << get_pcd_string(data->y * -1.0f) << " ";
+        }
+        else
+        {
+            output_file << get_pcd_string(data->y) << " ";
+        }
+
         output_file << get_pcd_string(data->z) << " ";
         output_file << get_pcd_string(data->nx) << " ";
-        output_file << get_pcd_string(data->ny) << " ";
+
+        if (reverse_y)
+        {
+            output_file << get_pcd_string(data->ny * -1) << " ";
+        }
+        else
+        {
+            output_file << get_pcd_string(data->ny) << " ";
+        }
+
         output_file << get_pcd_string(data->nz) << " ";
         output_file << "\n";
 
@@ -260,19 +280,24 @@ cv::Mat visualize_occupancy_matrix(const magellan_messages::MsgObstacleDetection
     return output;
 }
 
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "debug_obstacle_detection");
 
     std::string input_file_path = "";
+    bool reverse_y = false;
 
     int c;
-    while((c = getopt(argc, argv, "i:")) != -1)
+    while((c = getopt(argc, argv, "ri:")) != -1)
     {
         switch (c)
         {
             case 'i':
                 input_file_path = std::string(optarg);
+                break;
+            case 'r':
+                reverse_y = true;
                 break;
             default:
                 ROS_ERROR("Unrecognized argument %c", c);
@@ -286,31 +311,37 @@ int main(int argc, char** argv)
     }
 
     ROS_ERROR("Creating obstacle detector...");
-    ObstacleDetector detector;
 
     ROS_ERROR("Reading file from %s...", input_file_path.c_str());
     sensor_msgs::PointCloud2 input_cloud = read_pcd(input_file_path);
 
     ROS_ERROR("Writing to 'echo.pcd'...");
-    write_pcd(input_cloud, "echo.pcd");
+    write_pcd(input_cloud, "echo.pcd", reverse_y);
 
     ROS_ERROR("Running detection...");
     sensor_msgs::PointCloud2 dummy_cloud;
     magellan_messages::MsgObstacleDetection detection_result;
 
+    bool detection_successful;
+    double microseconds;
     std::chrono::high_resolution_clock clk;
-    std::chrono::high_resolution_clock::time_point start_time = clk.now();
-    bool detection_successful = detector.detect(input_cloud, dummy_cloud, detection_result);
-    std::chrono::high_resolution_clock::time_point end_time = clk.now();
-    
-    if (!detection_successful)
+    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::high_resolution_clock::time_point end_time;
+    for (int i = 0; i < 100; i++)
     {
-        ROS_ERROR("Detection was not successful.");
-        return 1;
-    }
+        start_time = clk.now();
+        detection_successful = detector.detect(input_cloud, dummy_cloud, detection_result);
+        end_time = clk.now();
 
-    double microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-    ROS_ERROR("Detection successful. Ran in %lf microseconds.", microseconds);
+        if (!detection_successful)
+        {
+            ROS_ERROR("Detection was not successful.");
+            return 1;
+        }
+
+        microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        ROS_ERROR("Detection successful. Ran in %lf microseconds.", microseconds);
+    }
 
     ROS_ERROR("Generating debug point cloud...");
     start_time = clk.now();
@@ -320,7 +351,7 @@ int main(int argc, char** argv)
     ROS_ERROR("Generated debug cloud in %lf microseconds.", microseconds);
 
     ROS_ERROR("Writing to 'debug.pcd'...");
-    write_pcd(debug_cloud, "debug.pcd");
+    write_pcd(debug_cloud, "debug.pcd", reverse_y);
 
     ROS_ERROR("Generating occupancy matrix visualization...");
     cv::Mat occupancy_matrix_visualization = visualize_occupancy_matrix(detection_result);

@@ -17,7 +17,7 @@ ObstacleDetector::ObstacleDetector()
     default_config.point_max_distance = 20;
     default_config.normals_traversable_thresh = 10 * deg_to_rad;
     default_config.normals_untraversable_thresh = 30 * deg_to_rad;
-    default_config.floodfill_square_start_size = 200;
+    default_config.floodfill_square_start_size = 50;
     default_config.max_floodfill_neighbor_distance = 4.0 * in_to_m; 
     default_config.max_floodfill_neighbor_angle = 10 * deg_to_rad;
     default_config.max_cone_neighbor_distance = 5.0 * in_to_m;
@@ -89,40 +89,50 @@ sensor_msgs::PointCloud2 ObstacleDetector::debug_annotate (
 
     for (int i = 0; i < this->num_points; i++)
     {
-        // If it's a cone, color by cone id
-        int cone_id = this->point_metadata[i].cone_id;
-        TraversabilityClassification_t traversability = this->point_metadata[i].traversability;
-        switch (cone_id)
+        if (!this->point_metadata[i].is_valid)
         {
-            case -1:
-                switch (traversability)
-                {
-                    case UNSAFE:
-                        ptr->rgba_color = 0xFF0000FF;
-                        break;
-                    case SAFE:
-                        ptr->rgba_color = 0x00FF00FF;
-                        break;
-                    case UNSET:
-                        throw std::runtime_error("Should not be unset here.");
-                    default:
-                        throw std::runtime_error("Unexpected traversability type.");
-                }
-            case 0:
-                throw std::runtime_error("Should not have cone_id of 0 here.");
-            case 1:
-                ptr->rgba_color = 0xFF00FFFF;
-                break;
-            case 2:
-                ptr->rgba_color = 0x00FFFFFF;
-                break;
-            case 3:
-                ptr->rgba_color = 0xFFA500FF;
-                break;
-            case 4:
-                ptr->rgba_color = 0xFFFF00FF;
-            default:
-                throw std::runtime_error("Unexpected cone_id value: " + std::to_string(cone_id) + ".");
+            ptr->rgba_color = 0x00000000;
+        }
+        else
+        {
+            // If it's a cone, color by cone id
+            int cone_id = this->point_metadata[i].cone_id;
+            TraversabilityClassification_t traversability = this->point_metadata[i].traversability;
+
+            switch (cone_id)
+            {
+                case -1:
+                    switch (traversability)
+                    {
+                        case UNSAFE:
+                            ptr->rgba_color = 0xFFFF0000;
+                            break;
+                        case SAFE:
+                            ptr->rgba_color = 0xFF00FF00;
+                            break;
+                        case UNSET:
+                            throw std::runtime_error("Should not be unset here.");
+                        default:
+                            throw std::runtime_error("Unexpected traversability type.");
+                    }
+                    break;
+                case 0:
+                    throw std::runtime_error("Should not have cone_id of 0 here.");
+                case 1:
+                    ptr->rgba_color = 0xFFFF00FF;
+                    break;
+                case 2:
+                    ptr->rgba_color = 0xFFFFFF00;
+                    break;
+                case 3:
+                    ptr->rgba_color = 0xFF00A5FF;
+                    break;
+                case 4:
+                    ptr->rgba_color = 0xFF00FFFF;
+                    break;
+                default:
+                    throw std::runtime_error("Unexpected cone_id value: " + std::to_string(cone_id) + ".");
+            }
         }
 
         ptr++;
@@ -139,15 +149,14 @@ void ObstacleDetector::fill_stereo_metadata(const StereoVisionPoint_t* stereo_cl
         const StereoVisionPoint_t &point = stereo_cloud[i];
 
         if (!std::isfinite(point.x)
-                || point.confidence < this->point_min_confidence
-                || l2(point.x, point.y, point.z) > this->point_max_distance_sq)
+                || point.confidence < this->point_min_confidence)
         {
             metadata.is_valid = false;
         }
         else
         {
             metadata.is_valid = true;
-            
+
             if (point.nz <= this->cos_normals_untraversable_thresh)
             {
                 metadata.traversability = UNSAFE;
@@ -172,22 +181,24 @@ void ObstacleDetector::fill_stereo_metadata(const StereoVisionPoint_t* stereo_cl
 
 void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *stereo_cloud)
 {
-    std::queue<std::pair<int, int>> queue;
+    std::queue<int> queue;
 
     // Start in the bottom center of the image
     int start_min_y = this->cloud_height - this->floodfill_square_start_size;
     int start_max_y = this->cloud_height;
     int start_min_x = (this->cloud_width / 2) - this->floodfill_square_start_size;
     int start_max_x = (this->cloud_width / 2) + this->floodfill_square_start_size;
-    
+
     for (int y = start_min_y; y < start_max_y; y++)
     {
         for (int x = start_min_x; x < start_max_x; x++)
         {
-            if (this->point_metadata[idx(y, x)].is_valid 
-                    && stereo_cloud[idx(y, x)].nz <= cos_normals_traversable_thresh)
+            int packed = (y*this->cloud_width) + x;
+            if (this->point_metadata[packed].is_valid 
+                    && stereo_cloud[packed].nz <= cos_normals_traversable_thresh)
             {
-                queue.emplace(std::make_pair(y, x));
+                this->point_metadata[packed].traversability = SAFE;
+                queue.emplace(packed);
             }
         }
     }
@@ -195,14 +206,13 @@ void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *ste
     // Examine neighbors
     while (!queue.empty())
     {
-        std::pair<int, int> good_point_coords = queue.front();
+        int good_point_packed = queue.front();
         queue.pop();
 
-        int y = good_point_coords.first;
-        int x = good_point_coords.second;
+        int y = good_point_packed / this->cloud_width;
+        int x = good_point_packed % this->cloud_width;
         int radius = 1;
-        const StereoVisionPoint_t good_point = stereo_cloud[idx(y, x)];
-        this->point_metadata[idx(y, x)].traversability = SAFE;
+        const StereoVisionPoint_t good_point = stereo_cloud[good_point_packed];
         
         for (int dy = -radius; dy <= radius; dy++)
         {
@@ -216,26 +226,26 @@ void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *ste
                 // Check that point is inside cloud
                 int ny = y + dy;
                 int nx = x + dx;
+                int packed = (ny*this->cloud_width) + nx;
                 if (ny < 0 || ny >= this->cloud_height || nx < 0 || nx >= this->cloud_width)
                 {
                     continue;
                 }
 
                 // Check that we have data for the point and have not already examined it.
-                const StereoVisionPoint_t new_point = stereo_cloud[idx(ny, nx)];
-                if (!this->point_metadata[idx(ny, nx)].is_valid
-                        || this->point_metadata[idx(ny, nx)].traversability != UNSET)
+                const StereoVisionPoint_t new_point = stereo_cloud[packed];
+                if (!this->point_metadata[packed].is_valid
+                        || this->point_metadata[packed].traversability != UNSET)
                 {
                     continue;
                 }
 
                 // Check that the two points are not too far apart.
                 // This would indicate a ledge.
-                float distance_sq = this->l2(
-                        (new_point.x-good_point.x)*(new_point.x-good_point.x),
-                        (new_point.y-good_point.y)*(new_point.y-good_point.y),
-                        (new_point.z-good_point.z)*(new_point.z-good_point.z));
-
+                float distance_sq = ((new_point.x-good_point.x)*(new_point.x-good_point.x)) +
+                                    ((new_point.y-good_point.y)*(new_point.y-good_point.y)) +
+                                    ((new_point.z-good_point.z)*(new_point.z-good_point.z));
+               
                 if (distance_sq > this->max_floodfill_neighbor_distance_sq)
                 {
                     continue;
@@ -249,8 +259,8 @@ void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *ste
                 }
 
                 // We have a good point. Set its status as "good" and add it to the queue.
-                this->point_metadata[idx(ny, nx)].traversability = SAFE;
-                queue.emplace(std::make_pair(ny, nx));
+                this->point_metadata[packed].traversability = SAFE;
+                queue.emplace(packed);
             }
         }
     }
@@ -308,13 +318,27 @@ void ObstacleDetector::floodfill_cones(const StereoVisionPoint_t *stereo_cloud)
 
                         int ny = y + dy;
                         int nx = x + dx;
+
+                        if ((nx < 0 )
+                                || (nx >= this->cloud_width)
+                                || (ny < 0) 
+                                || (ny >= this->cloud_height))
+                        {
+                            continue;
+                        }
+
                         int new_packed = idx(ny, nx);
+
+                        if (!this->point_metadata[new_packed].is_valid)
+                        {
+                            continue;
+                        }
+
                         const StereoVisionPoint_t &new_point = stereo_cloud[idx(ny, nx)];
 
-                        float distance_sq = this->l2(
-                                (new_point.x - this_point.x),
-                                (new_point.y - this_point.y),
-                                (new_point.z - this_point.z));
+                        float distance_sq = ((new_point.x - this_point.x)) +
+                                            ((new_point.y - this_point.y)) +
+                                            ((new_point.z - this_point.z));
 
                         bool visited = (cone_points.count(new_packed) != 0);
 
@@ -356,7 +380,6 @@ void ObstacleDetector::floodfill_cones(const StereoVisionPoint_t *stereo_cloud)
             }
         }
     }
-
 }
 
 void ObstacleDetector::generate_output_message(
@@ -384,7 +407,7 @@ void ObstacleDetector::generate_output_message(
     int num_squares_wide = static_cast<int>(ceil((max_x - min_x) / this->occupancy_matrix_grid_square_size));
     int num_squares_tall = static_cast<int>(ceil((max_y - min_y) / this->occupancy_matrix_grid_square_size));
 
-    std::vector<std::map<int, int>> counters(num_squares_wide*num_squares_tall);
+    std::vector<PointAggregatorType_t> counters(num_squares_wide*num_squares_tall);
     for (int i = 0; i < this->num_points; i++)
     {
         const StereoVisionPointMetadata_t &point_metadata = this->point_metadata[i];
@@ -395,24 +418,24 @@ void ObstacleDetector::generate_output_message(
 
         const StereoVisionPoint_t &point = stereo_cloud[i];
 
-        int occ_x = floor((point.x - min_x) / this->occupancy_matrix_grid_square_size);
-        int occ_y = floor((point.y - min_y) / this->occupancy_matrix_grid_square_size);
+        int occ_x = (point.x - min_x) / this->occupancy_matrix_grid_square_size;
+        int occ_y = (point.y - min_y) / this->occupancy_matrix_grid_square_size;
+        int packed = (occ_y * num_squares_wide) + occ_x;
 
+        // This gives a small chance that two cones overlap in a square.
+        // Even if this does happen in practice, it should be rare.
         if (point_metadata.cone_id > 0)
         {
-            counters[idx(occ_y, occ_x)][point_metadata.cone_id]++;
+            counters[packed].cone_count++;
+            counters[packed].cone_id = point_metadata.cone_id;
         }
         else if (point_metadata.traversability == SAFE)
         {
-            counters[idx(occ_y, occ_x)][0]++;
+            counters[packed].safe_count++;
         }
         else if (point_metadata.traversability == UNSAFE)
         {
-            counters[idx(occ_y, occ_x)][-1]++;
-        }
-        else if (point_metadata.traversability == UNSET)
-        {
-            counters[idx(occ_y, occ_x)][-2]++;
+            counters[packed].unsafe_count++;
         }
     }
 
@@ -421,27 +444,43 @@ void ObstacleDetector::generate_output_message(
     {
         for (int x = 0; x < num_squares_wide; x++)
         {
-            std::map<int, int> collected_points = counters[idx(y, x)];
+            int packed = (y*num_squares_wide) + x;
+            const PointAggregatorType_t &agg = counters[packed];
 
-            int max_key = 0;
-            int max_value = std::numeric_limits<int>::min();
-
-            for (const auto &kvp : collected_points)
+            if (agg.unsafe_count >= agg.safe_count
+                    && agg.unsafe_count >= agg.cone_count)
             {
-                if (kvp.second > max_value)
+                if (agg.unsafe_count < this->min_occupancy_matrix_num_points)
                 {
-                    max_key = kvp.first;
-                    max_value = kvp.second;
+                    obstacle_detection_result.matrix[packed] = -3;
+                }
+                else
+                {
+                    obstacle_detection_result.matrix[packed] = -1;
                 }
             }
-
-            if (max_value < this->min_occupancy_matrix_num_points)
+            else if (agg.safe_count >= agg.unsafe_count
+                        && agg.safe_count >= agg.cone_count)
             {
-                obstacle_detection_result.matrix[idx(y,x)] = -3;
+                if (agg.safe_count < this->min_occupancy_matrix_num_points)
+                {
+                    obstacle_detection_result.matrix[packed] = -3;
+                }
+                else
+                {
+                    obstacle_detection_result.matrix[packed] = 0;
+                }
             }
             else
             {
-                obstacle_detection_result.matrix[idx(y, x)] = max_key;
+                if (agg.cone_count < this->min_occupancy_matrix_num_points)
+                {
+                    obstacle_detection_result.matrix[packed] = -3;
+                }
+                else
+                {
+                    obstacle_detection_result.matrix[packed] = agg.cone_id;
+                }
             }
         }
     }
@@ -466,9 +505,9 @@ inline HlsColor_t ObstacleDetector::rgba_to_hls(uint32_t rgba_color)
 {
     HlsColor_t out;
 
-    float r = static_cast<float>((rgba_color & 0xFF000000) >> 24);
+    float b = static_cast<float>((rgba_color & 0xFF000000) >> 24);
     float g = static_cast<float>((rgba_color & 0x00FF0000) >> 16);
-    float b = static_cast<float>((rgba_color & 0x0000FF00) >> 8);
+    float r = static_cast<float>((rgba_color & 0x0000FF00) >> 8);
 
     float max;
     float min = static_cast<float>(std::min(std::min(r, b), g)) / 255.0f;
