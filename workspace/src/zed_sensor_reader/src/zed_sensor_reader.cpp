@@ -47,7 +47,7 @@ typedef struct capture_parameters
 
 static std::string g_frame_id = "map";
 static constexpr int g_pose_update_rate = 60;
-static constexpr float g_rot_theta = 32.0f;
+static constexpr float g_rot_theta = -32.0f;
 static constexpr float deg_to_rad = M_PI / 180.0f;
 static constexpr float cos_g_rot_theta = 0.848048096156425970386176178690386448728712055956245359051f; // cos(-32 degrees)
 static constexpr float sin_g_rot_theta = -0.52991926423320495404678115181608666877201754995879996476; // sin(-32 degrees)
@@ -284,9 +284,9 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 uint8_t* out_buf_ptr = point_cloud_msg.data.data();
 
                 sl::float4* point_cloud_ptr = point_cloud.getPtr<sl::float4>();
-                sl::float1* confidence_ptr = point_cloud.getPtr<sl::float1>();
+                sl::float1* confidence_ptr = confidence.getPtr<sl::float1>();
                 sl::uchar4* image_ptr = image.getPtr<sl::uchar4>();
-                sl::float4* normals_ptr = point_cloud.getPtr<sl::float4>();
+                sl::float4* normals_ptr = normals.getPtr<sl::float4>();
 
                 for (int y = 0; y < height; y++)
                 {
@@ -338,7 +338,7 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
             if (capture_parameters.publish_pose)
             {
                 pose_msg.header.stamp = now;
-                g_camera.getPosition(pose, sl::REFERENCE_FRAME::WORLD);
+                g_camera.getPosition(pose, sl::REFERENCE_FRAME::CAMERA);
 
                 sl_vec3_to_ros_point(pose.getTranslation(), pose_msg.pose.pose.position);
                 sl_quat_to_ros_quat(pose.getOrientation(), pose_msg.pose.pose.orientation);

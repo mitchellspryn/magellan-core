@@ -2,7 +2,9 @@
     <node name="magellan_rviz" pkg="magellan_rviz" type="node">
         <remap from="input_zed_point_cloud" to="zed_sensor_reader/output_topic_point_cloud" />
         <remap from="input_zed_pose" to="zed_sensor_reader/output_topic_pose" />
-        <remap from="input_rplidar_point_cloud" to="/rplidar_sensor_reader/output_topic" />
+        <remap from="input_rplidar_point_cloud" to="rplidar_sensor_reader/output_topic" />
+        <remap from="input_obstacle_detection_debug_point_cloud" to="obstacle_detection/output_topic_debug_point_cloud" />
+        <remap from="input_obstacle_detection" to="obstacle_detection/output_topic_detection" />
         <remap from="output_zed_point_cloud" to="rviz/output_zed_point_cloud" />
         <remap from="output_zed_image" to="rviz/output_zed_image" />
         <remap from="output_zed_pose" to="rviz/output_zed_pose" />
@@ -10,6 +12,12 @@
         <remap from="output_obstacle_detection_debug_point_cloud" to="rviz/output_obstacle_detection_debug_point_cloud" />
         <remap from="output_obstacle_detection_occupancy_matrix" to="rviz/output_obstacle_detection_occupancy_matrix" />
         <remap from="output_obstacle_detection_cone_viz" to="rviz/output_obstacle_detection_cone_viz" />
+    </node>
+
+    <node name="obstacle_detection" pkg="obstacle_detection" type="node" args="-d -f 10">
+        <remap from="input_topic_stereo_point_cloud" to="zed_sensor_reader/output_topic_point_cloud" />
+        <remap from="output_topic_detection" to="obstacle_detection/output_topic_detection" />
+        <remap from="output_topic_debug_point_cloud" to="obstacle_detection/output_topic_debug_point_cloud" />
     </node>
 
     <node name="zed_reader" pkg="zed_sensor_reader" type="node" args="-p -f 15">

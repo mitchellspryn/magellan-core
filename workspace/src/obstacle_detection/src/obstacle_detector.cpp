@@ -488,6 +488,13 @@ void ObstacleDetector::generate_output_message(
     obstacle_detection_result.map_metadata.height = num_squares_tall;
     obstacle_detection_result.map_metadata.width = num_squares_wide;
     obstacle_detection_result.map_metadata.resolution = this->occupancy_matrix_grid_square_size;
+    obstacle_detection_result.map_metadata.origin.orientation.w = 1;
+    obstacle_detection_result.map_metadata.origin.orientation.x = 0;
+    obstacle_detection_result.map_metadata.origin.orientation.y = 0;
+    obstacle_detection_result.map_metadata.origin.orientation.z = 0;
+    obstacle_detection_result.map_metadata.origin.position.x = floor(min_x / this->occupancy_matrix_grid_square_size) * this->occupancy_matrix_grid_square_size;
+    obstacle_detection_result.map_metadata.origin.position.y = floor(min_y / this->occupancy_matrix_grid_square_size) * this->occupancy_matrix_grid_square_size;
+    obstacle_detection_result.map_metadata.origin.position.z = 0;
 }
 
 bool ObstacleDetector::is_cone_color(const StereoVisionPoint_t &stereo_point)

@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   magellan_messages
+  nav_msgs
   tf
   visualization_msgs
 )
@@ -16,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(OpenCV REQUIRED)
 
 catkin_package(
-    CATKIN_DEPENDS roscpp image_transport cv_bridge message_generation sensor_msgs magellan_messages visualization_msgs tf
+    CATKIN_DEPENDS roscpp image_transport cv_bridge message_generation sensor_msgs magellan_messages nav_msgs visualization_msgs tf
 )
 
 include_directories(

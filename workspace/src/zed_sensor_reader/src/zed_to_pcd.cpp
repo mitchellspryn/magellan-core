@@ -94,6 +94,8 @@ sensor_msgs::PointCloud2 read_point_cloud_from_camera()
     sl::Camera camera; 
     
     sl::InitParameters init_parameters;
+    init_parameters.camera_fps = 60;
+    init_parameters.camera_resolution = sl::RESOLUTION::HD720;
     init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
     init_parameters.coordinate_units = sl::UNIT::METER;
     init_parameters.depth_minimum_distance = 0.2;
@@ -102,7 +104,7 @@ sensor_msgs::PointCloud2 read_point_cloud_from_camera()
     init_parameters.depth_stabilization = true;
     init_parameters.enable_image_enhancement = true;
     init_parameters.enable_right_side_measure = false;
-    init_parameters.sensors_required = false;
+    init_parameters.sensors_required = true;
 
     if (camera.open(init_parameters) != sl::ERROR_CODE::SUCCESS) 
     {
@@ -141,11 +143,6 @@ sensor_msgs::PointCloud2 read_point_cloud_from_camera()
     for (int i = 0; i < width*height; i++)
     {
         float x, y, z, nx, ny, nz, confidence;
-
-        if (std::isfinite(point_cloud_data->x))
-        {
-            int k = 0;
-        }
 
         x = (c * point_cloud_data->x) - (s * point_cloud_data->z);
         y = point_cloud_data->y;

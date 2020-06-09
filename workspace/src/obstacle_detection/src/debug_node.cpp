@@ -327,7 +327,7 @@ int main(int argc, char** argv)
     std::chrono::high_resolution_clock clk;
     std::chrono::high_resolution_clock::time_point start_time;
     std::chrono::high_resolution_clock::time_point end_time;
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 1; i++)
     {
         start_time = clk.now();
         detection_successful = detector.detect(input_cloud, dummy_cloud, detection_result);

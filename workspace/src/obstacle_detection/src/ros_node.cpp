@@ -9,11 +9,13 @@
 #include <magellan_messages/MsgObstacleDetection.h>
 #include <magellan_messages/MsgObstacleDetectorConfig.h>
 #include "../include/obstacle_detector.hpp"
+#include "ros/time.h"
 
 ros::Publisher detection_publisher;
 ros::Publisher debug_point_cloud_publisher;
 
 bool publish_debug_point_cloud = false;
+bool have_cloud = false;
 float prediction_hz = 10;
 
 ObstacleDetector detector;
@@ -29,6 +31,7 @@ void stereo_point_cloud_received_callback(const sensor_msgs::PointCloud2::ConstP
 {
     detection_mutex.lock();
     latest_stereo_point_cloud = cloud;
+    have_cloud = true;
     detection_mutex.unlock();
 }
 
@@ -47,6 +50,11 @@ void obstacle_detection_configuration_received_callback(const magellan_messages:
 
 void detection_thread(const ros::TimerEvent &event)
 {
+    if (!have_cloud)
+    {
+        return;
+    }
+
     detection_mutex.lock();
 
     bool detection_successful = detector.detect(*latest_stereo_point_cloud, dummy_cloud, obstacle_detection_result);
@@ -57,13 +65,18 @@ void detection_thread(const ros::TimerEvent &event)
 
     detection_mutex.unlock();
 
+    ros::Time now = ros::Time::now();
     if (detection_successful)
     {
+        obstacle_detection_result.header.frame_id = "zed";
+        obstacle_detection_result.header.stamp = now;
         detection_publisher.publish(obstacle_detection_result);
     }
 
     if (detection_successful && publish_debug_point_cloud)
     {
+        debug_point_cloud.header.frame_id = "zed";
+        debug_point_cloud.header.stamp = now;
         debug_point_cloud_publisher.publish(debug_point_cloud);
     }
 }
