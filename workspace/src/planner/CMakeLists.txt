@@ -27,6 +27,10 @@ include_directories(
 )
 
 add_executable(${PROJECT_NAME}_node src/ros_node.cpp
+    src/a_star_path_generator.cpp
+    src/global_map.cpp
+    src/pid_path_follower.cpp
+    src/simple_path_validator.cpp
 )
 
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
