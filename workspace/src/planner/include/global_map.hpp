@@ -8,11 +8,13 @@
 class GlobalMap
 {
     public:
-        void update_map(
-                const magellan_messages::MsgZedPose &pose,
-                const magellan_messages::MsgMagellanOccupancyGrid &obstacles);
+        virtual ~GlobalMap() {};
 
-        const magellan_messages::MsgMagellanOccupancyGrid& get();
+        virtual void update_map(
+                const magellan_messages::MsgZedPose &pose,
+                const magellan_messages::MsgMagellanOccupancyGrid &obstacles) = 0;
+
+        virtual const magellan_messages::MsgMagellanOccupancyGrid& get() = 0;
 };
 
 #endif
