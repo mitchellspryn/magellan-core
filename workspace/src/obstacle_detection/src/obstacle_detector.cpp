@@ -1,10 +1,4 @@
 #include "../include/obstacle_detector.hpp"
-#include "magellan_messages/MsgObstacleDetection.h"
-#include "magellan_messages/MsgObstacleDetectorConfig.h"
-#include "sensor_msgs/PointCloud.h"
-#include "sensor_msgs/PointCloud2.h"
-#include <cmath>
-#include <stdexcept>
 
 ObstacleDetector::ObstacleDetector()
 {
@@ -59,7 +53,7 @@ void ObstacleDetector::set_internal_parameters(
 bool ObstacleDetector::detect(
         const sensor_msgs::PointCloud2 &stereo_camera_point_cloud,
         const sensor_msgs::PointCloud2 &rplidar_point_cloud,
-        magellan_messages::MsgObstacleDetection &obstacle_detection_result)
+        magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result)
 {
     if ((stereo_camera_point_cloud.width != this->cloud_width)
             || (stereo_camera_point_cloud.height != this->cloud_height))
@@ -384,7 +378,7 @@ void ObstacleDetector::floodfill_cones(const StereoVisionPoint_t *stereo_cloud)
 
 void ObstacleDetector::generate_output_message(
         const StereoVisionPoint_t *stereo_cloud,
-        magellan_messages::MsgObstacleDetection &obstacle_detection_result)
+        magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result)
 {
 
     float min_x = std::numeric_limits<float>::max();

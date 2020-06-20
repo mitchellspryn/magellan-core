@@ -17,8 +17,8 @@ add_message_files(
     MsgSerialPortLine.msg
     MsgMagellanImu.msg
     MsgMagellanDrive.msg
+    MsgMagellanOccupancyGrid.msg
     MsgObstacleDetectorConfig.msg
-    MsgObstacleDetection.msg
     MsgVisualOdometryDebug.msg
     MsgVisualOdometry.msg
     MsgLocalObstacleField.msg

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>local_planner</name>
+  <name>planner</name>
   <version>0.0.0</version>
-  <description>This package contains exectuables related to local path planning.</description>
+  <description>This package contains exectuables related to path planning.</description>
 
   <maintainer email="mitchell.spryn@gmail.com">Mitchell Spryn</maintainer>
   <author email="mitchell.spryn@gmail.com">Mitchell Spryn</author>

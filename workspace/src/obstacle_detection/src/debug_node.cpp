@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <magellan_messages/MsgObstacleDetection.h>
+#include <magellan_messages/MsgMagellanOccupancyGrid.h>
 #include "../include/obstacle_detector.hpp"
 #include "sensor_msgs/PointCloud.h"
 
@@ -220,7 +220,7 @@ void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_na
     output_file.close();
 }
 
-cv::Mat visualize_occupancy_matrix(const magellan_messages::MsgObstacleDetection &detection)
+cv::Mat visualize_occupancy_matrix(const magellan_messages::MsgMagellanOccupancyGrid &detection)
 {
     int max_image_dim_px = 1000;
 
@@ -320,7 +320,7 @@ int main(int argc, char** argv)
 
     ROS_ERROR("Running detection...");
     sensor_msgs::PointCloud2 dummy_cloud;
-    magellan_messages::MsgObstacleDetection detection_result;
+    magellan_messages::MsgMagellanOccupancyGrid detection_result;
 
     bool detection_successful;
     double microseconds;

@@ -18,7 +18,7 @@
 #include <vector>
 
 #include <magellan_messages/MsgObstacleDetectorConfig.h>
-#include <magellan_messages/MsgObstacleDetection.h>
+#include <magellan_messages/MsgMagellanOccupancyGrid.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/PointField.h>
 
@@ -36,7 +36,7 @@ class ObstacleDetector
         bool detect(
                 const sensor_msgs::PointCloud2 &stereo_camera_point_cloud,
                 const sensor_msgs::PointCloud2 &rplidar_point_cloud,
-                magellan_messages::MsgObstacleDetection &obstacle_detection_result);
+                magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result);
 
         sensor_msgs::PointCloud2 debug_annotate(
                 const sensor_msgs::PointCloud2 &stereo_camera_point_cloud);
@@ -74,7 +74,7 @@ class ObstacleDetector
         void floodfill_cones(const StereoVisionPoint_t *stereo_cloud);
         void generate_output_message(
                 const StereoVisionPoint_t *stereo_cloud,
-                magellan_messages::MsgObstacleDetection &obstacle_detection_result);
+                magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result);
         bool is_cone_color(const StereoVisionPoint_t &stereo_point);
         inline HlsColor_t rgba_to_hls(uint32_t rgba_color);
 

@@ -6,7 +6,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <unistd.h>
 
-#include <magellan_messages/MsgObstacleDetection.h>
+#include <magellan_messages/MsgMagellanOccupancyGrid.h>
 #include <magellan_messages/MsgObstacleDetectorConfig.h>
 #include "../include/obstacle_detector.hpp"
 #include "ros/time.h"
@@ -25,7 +25,7 @@ sensor_msgs::PointCloud2::ConstPtr latest_stereo_point_cloud;
 sensor_msgs::PointCloud2 debug_point_cloud;
 sensor_msgs::PointCloud2 dummy_cloud;
 
-magellan_messages::MsgObstacleDetection obstacle_detection_result;
+magellan_messages::MsgMagellanOccupancyGrid obstacle_detection_result;
 
 void stereo_point_cloud_received_callback(const sensor_msgs::PointCloud2::ConstPtr &cloud)
 {
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
 
     ros::NodeHandle nh;
 
-    detection_publisher = nh.advertise<magellan_messages::MsgObstacleDetection>("output_topic_detection", 1000);
+    detection_publisher = nh.advertise<magellan_messages::MsgMagellanOccupancyGrid>("output_topic_detection", 1000);
 
     if (publish_debug_point_cloud)
     {

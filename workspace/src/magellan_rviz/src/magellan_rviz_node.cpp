@@ -22,7 +22,7 @@
 
 #include <magellan_messages/MsgZedPose.h>
 #include <magellan_messages/MsgZedSensors.h>
-#include <magellan_messages/MsgObstacleDetection.h>
+#include <magellan_messages/MsgMagellanOccupancyGrid.h>
 
 const std::string g_global_frame_id = "map";
 const std::string g_local_frame_id = "zed";
@@ -102,7 +102,7 @@ void get_cone_rgba(visualization_msgs::Marker &marker, int cone_id)
     }
 }
 
-void transform_obstacle_detection(const magellan_messages::MsgObstacleDetection::ConstPtr &incoming_msg)
+void transform_obstacle_detection(const magellan_messages::MsgMagellanOccupancyGrid::ConstPtr &incoming_msg)
 {
     int width = incoming_msg->map_metadata.width;
     int height = incoming_msg->map_metadata.height;
@@ -379,7 +379,7 @@ int main(int argc, char** argv)
 
     ros::Subscriber zed_point_cloud_subscriber = nh.subscribe<sensor_msgs::PointCloud2>("input_zed_point_cloud", 10, transform_zed_point_cloud);
     ros::Subscriber obstacle_detection_debug_point_cloud_subscriber = nh.subscribe<sensor_msgs::PointCloud2>("input_obstacle_detection_debug_point_cloud", 10, transform_obstacle_debug_point_cloud);
-    ros::Subscriber obstacle_detection_detection_subscriber = nh.subscribe<magellan_messages::MsgObstacleDetection>("input_obstacle_detection", 10, transform_obstacle_detection);
+    ros::Subscriber obstacle_detection_detection_subscriber = nh.subscribe<magellan_messages::MsgMagellanOccupancyGrid>("input_obstacle_detection", 10, transform_obstacle_detection);
     ros::Subscriber zed_pose_subscriber = nh.subscribe<magellan_messages::MsgZedPose>("input_zed_pose", 10, transform_zed_pose);
     ros::Subscriber rplidar_subscriber = nh.subscribe<sensor_msgs::PointCloud2>("input_rplidar_point_cloud", 10, transform_rplidar_scan);
 
