@@ -28,8 +28,9 @@ include_directories(
 
 add_executable(${PROJECT_NAME}_node src/ros_node.cpp
     src/a_star_path_generator.cpp
+    src/geometry_utils.cpp
     src/last_seen_global_map.cpp
-    src/pid_path_follower.cpp
+    src/pid_motor_signal_generator.cpp
     src/simple_path_validator.cpp
     src/voting_global_map.cpp
 )

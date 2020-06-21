@@ -10,6 +10,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/Pose.h>
 
+#include "geometry_utils.hpp"
 #include "global_map.hpp"
 #include "planner_types.hpp"
 
@@ -41,14 +42,6 @@ class LastSeenGlobalMap : public GlobalMap
         float resolution_in_m;
         int num_x_squares;
         int num_y_squares;
-
-        const geometry_msgs::Point RotateByQuaternion(
-            const geometry_msgs::Point &p,
-            const geometry_msgs::Quaternion &q);
-
-        const geometry_msgs::Quaternion HamiltonProduct(
-            const geometry_msgs::Quaternion &q1,
-            const geometry_msgs::Quaternion &q2);
 };
 
 #endif
