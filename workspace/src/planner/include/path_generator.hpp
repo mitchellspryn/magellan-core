@@ -6,6 +6,8 @@
 #include <magellan_messages/MsgMagellanOccupancyGrid.h>
 #include <nav_msgs/Path.h>
 
+#include "global_map.hpp"
+
 class PathGenerator
 {
     public:
@@ -14,7 +16,7 @@ class PathGenerator
         virtual bool update_path(
             const magellan_messages::MsgZedPose &current_pose,
             const geometry_msgs::Pose &goal_pose,
-            const magellan_messages::MsgMagellanOccupancyGrid &world_grid,
+            const GlobalMap &world_grid,
             nav_msgs::Path &path) = 0;
 };
 

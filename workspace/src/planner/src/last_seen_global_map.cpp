@@ -86,9 +86,35 @@ void LastSeenGlobalMap::update_map(
     }
 }
 
-const magellan_messages::MsgMagellanOccupancyGrid& LastSeenGlobalMap::get()
+const magellan_messages::MsgMagellanOccupancyGrid& LastSeenGlobalMap::get_map() const
 {
     return this->grid;
+}
+
+OccupancyGridSquare_t LastSeenGlobalMap::real_to_grid(
+    const geometry_msgs::Point &real_world_point) const
+{
+    OccupancyGridSquare_t square;
+    
+    square.x = static_cast<int>((real_world_point.x - this->min_world_x) / this->resolution_in_m);
+    square.y = static_cast<int>((real_world_point.y - this->min_world_y) / this->resolution_in_m);
+
+    square.x = std::max(std::min(this->num_x_squares-1, square.x), 0);
+    square.y = std::max(std::min(this->num_y_squares-1, square.y), 0);
+
+    return square;
+}
+
+geometry_msgs::Point LastSeenGlobalMap::grid_to_real(
+    const OccupancyGridSquare_t &square) const
+{
+    geometry_msgs::Point point;
+    
+    point.x = (square.x * this->resolution_in_m) + this->min_world_x;
+    point.y = (square.y * this->resolution_in_m) + this->min_world_y;
+    point.z = 0;
+
+    return point;
 }
 
 const geometry_msgs::Point LastSeenGlobalMap::RotateByQuaternion(
