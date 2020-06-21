@@ -54,6 +54,8 @@ magellan_messages::MsgMagellanDrive PidMotorSignalGenerator::get_drive_signals(
     // Right side runs faster than left side
     result.right_throttle *= this->right_wheel_speed_scale;
 
+    // TODO: we should scale results so that we get slower the closer we get to the final waypoint.
+
     return result;
 }
 
