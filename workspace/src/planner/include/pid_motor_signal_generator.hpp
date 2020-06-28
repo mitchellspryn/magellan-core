@@ -10,7 +10,7 @@
 #include "geometry_utils.hpp"
 #include "motor_signal_generator.hpp"
 
-class PidMotorSignalGenerator : MotorSignalGenerator
+class PidMotorSignalGenerator : public MotorSignalGenerator
 {
     public:
         virtual magellan_messages::MsgMagellanDrive get_drive_signals(

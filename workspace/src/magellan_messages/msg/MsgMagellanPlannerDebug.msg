@@ -1,0 +1,7 @@
+Header header
+MsgZedPose pose
+geometry_msgs/Point goal
+MsgMagellanOccupancyGrid local_obstacle_map
+MsgMagellanOccupancyGrid global_obstacle_map
+nav_msgs/Path path
+MsgMagellanDrive control_signals

@@ -1,4 +1,5 @@
 #include "../include/planner.hpp"
+#include "magellan_messages/MsgMagellanDrive.h"
 
 Planner::Planner()
 {
@@ -12,9 +13,15 @@ Planner::Planner()
 
 magellan_messages::MsgMagellanDrive Planner::run_planner(
     const magellan_messages::MsgZedPose &pose,
-    const magellan_messages::MsgMagellanOccupancyGrid &obstacles)
+    const magellan_messages::MsgMagellanOccupancyGrid &obstacles,
+    magellan_messages::MsgMagellanPlannerDebug &debug_msg)
 {
+    debug_msg.local_obstacle_map = obstacles;
+    debug_msg.pose = pose;
     this->global_map->update_map(pose, obstacles);  
+
+    debug_msg.global_obstacle_map = this->global_map->get_map();
+    debug_msg.goal = this->get_goal_position();
 
     if (!this->path_validator->is_path_valid(pose, this->planned_path, *(this->global_map)))
     {
@@ -29,6 +36,8 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
             magellan_messages::MsgMagellanDrive result;
             result.left_throttle = 0;
             result.right_throttle = 0;
+            debug_msg.path = this->planned_path;
+            debug_msg.control_signals = result;
             return result;
         }
     }
@@ -36,7 +45,12 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
     // TODO: remove points as we get close to them.
     // Should the planner do that, should the path validator, or should another module?
 
-    return this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
+    magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
+
+    debug_msg.control_signals = signals;
+    debug_msg.path = this->planned_path;
+
+    return signals;
 }
 
 void Planner::set_goal_position(const geometry_msgs::Point &position)

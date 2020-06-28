@@ -15,36 +15,83 @@
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-sm-12 text-center">
-                        <h1><b>Control</b></h1>
+                        <h1><b>Magellan Control Page</b></h1>
                     </div>
                 </div>
                 
                 <div class="row">
-                    <!--Xtion div -->
+                    
+                    <div class="col-sm-8">
+                        <img id="planner-debug-image" src="{{plannerDebugImage}}" class="img-thumbnail" />
+                    </div>
+
                     <div class="col-sm-4">
                         <div class="row">
-                            <div class="col-sm-6 text-center">
-                                <div class="row">
-                                    <div class="col-sm-12">
-                                        <h2>Xtion-Rgb</h2>
-                                    </div>
-                                </div>
-                                <img id="xtion-rbg-image" src="{{xtionRgbImageData}}" class="img-thumbnail" />
-                            </div>
-                            <div class="col-sm-6 text-center">
-                                <div class="row">
-                                    <div class="col-sm-12">
-                                        <h2>Xtion-Depth</h2>
-                                    </div>
-                                </div>
-                                <img id="xtion-depth-image" src="{{xtionDepthImageData}}" class="img-thumbnail" />
+                            <div class="col-sm-12">
+                                <h2>Current Pose:</h2>
                             </div>
                         </div>
-                    </div>
-                    
+                        <div class="row">
+                            <div class="col-sm-12">
+                                Position = &lt; {{roundFloatForDisplay(currentX)}} X, {{roundFloatForDisplay(currentY)}} Y, {{roundFloatForDisplay(currentZ)}} Z &gt;
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                Orientation = &lt; {{roundFloatForDisplay(currentRoll)}} R, {{roundFloatForDisplay(currentPitch)}} P, {{roundFloatForDisplay(currentYaw)}} Y &gt;
+                            </div>
+                        </div>
 
-                    <!--Motor control div-->
-                    <div class="col-sm-4">
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <h2> Waypoints: </h2>
+                            </div>
+                        </div>
+
+                        <div ng-repeat="waypoint in waypoints">
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    Position = &lt; {{roundFloatForDisplay(waypoint.x)}} X, {{roundFloatForDisplay(waypoint.y)}} Y; {{roundFloatForDisplay(waypoint.z)}} Z &gt;
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <h2>Goal Position:</h2>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-12">
+                                Position = &lt; {{roundFloatForDisplay(goalX)}} X, {{roundFloatForDisplay(goalY)}} Y, {{roundFloatForDisplay(goalZ)}} Z &gt;
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <h2>Motor Control Signals:</h2>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-12">
+                                Left = {{roundFloatForDisplay(leftMotorFromSystem)}}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-12">
+                                Right = {{roundFloatForDisplay(rightMotorFromSystem)}}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <h2> Motor control: </h2>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <div class="col-sm-4">
                                 <button type="button" class="btn btn-success" ng-click="submitMotors()">
@@ -66,101 +113,22 @@
                                     <div class="col-sm-1 text-right">
                                         Right:
                                     </div>
-                                    <div class="col-sm-11">
+                                    <div class="col-sm-8">
                                         <input type="text" class="form-control" ng-model="rightMotor" />
+                                    </div>
+                                    <div class="col-sm-3">
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-sm-1 text-right">
                                         Left:
                                     </div>
-                                    <div class="col-sm-11">
+                                    <div class="col-sm-8">
                                         <input type="text" class="form-control" ng-model="leftMotor" />
                                     </div>
+                                    <div class="col-sm-3">
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!--IMU info div-->
-                    <div class="col-sm-4">
-                        <div class="row">
-                            <div class="col-sm-12 text-center">
-                                <h2>IMU</h2>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-sm-4">
-                                AX: {{roundFloatForDisplay(accelX)}}
-                            </div>
-                            <div class="col-sm-4">
-                                AY: {{roundFloatForDisplay(accelY)}}
-                            </div>
-                            <div class="col-sm-4">
-                                AZ: {{roundFloatForDisplay(accelZ)}}
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-sm-4">
-                                GX: {{roundFloatForDisplay(gyroX)}}
-                            </div>
-                            <div class="col-sm-4">
-                                GY: {{roundFloatForDisplay(gyroY)}}
-                            </div>
-                            <div class="col-sm-4">
-                                GZ: {{roundFloatForDisplay(gyroZ)}}
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-sm-4">
-                                MX: {{roundFloatForDisplay(magX)}}
-                            </div>
-                            <div class="col-sm-4">
-                                MY: {{roundFloatForDisplay(magY)}}
-                            </div>
-                            <div class="col-sm-4">
-                                MZ: {{roundFloatForDisplay(magZ)}}
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-sm-4">
-                                Lat: {{roundFloatForDisplay(latitude)}}
-                            </div>
-                            <div class="col-sm-4">
-                                Long: {{roundFloatForDisplay(longitude)}}
-                            </div>
-                            <div class="col-sm-4">
-                                Alt: {{roundFloatForDisplay(altitude)}}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <!--Downward facing camera div-->
-                    <div class="col-sm-6">
-                        <div class="row">
-                            <div class="col-sm-12 text-center">
-                                <h2>Bottom Camera</h2>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-sm-12 text-center">
-                                <img id="bottom-camera-image" src="{{bottomCameraImageData}}" class="img-thumbnail" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <!--Lidar div -->
-                    <div class="col-sm-6">
-                        <div class="row">
-                            <div class="col-sm-12 text-center">
-                                <h2>Lidar</h2>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-sm-12 text-center">
-                                <img id="lidar-image" src="{{lidarImageData}}" class="img-thumbnail" />
                             </div>
                         </div>
                     </div>
@@ -176,42 +144,55 @@
         <script>
             var app = angular.module('controlApp', [])
             app.controller('controlController', ['$scope', '$interval', '$http', function($scope, $interval, $http) {
-                $scope.accelX = 1.23;
-                $scope.accelY = 2.34;
-                $scope.accelZ = 3.45;
-                $scope.gyroX = 1.11;
-                $scope.gyroY = 2.22;
-                $scope.gyroZ = 3.33;
-                $scope.magX = 3.21;
-                $scope.magY = 4.32;
-                $scope.magZ = 5.43;
-                $scope.longitude = 14.14;
-                $scope.latitude = 13.13;
-                $scope.altitude = 15.15;
+                $scope.currentX = 12.345;
+                $scope.currentY = 23.455;
+                $scope.currentZ = 34.565;
+                $scope.currentRoll = 0.12;
+                $scope.currentPitch = 22.32;
+                $scope.currentYaw = 11.11;
+                $scope.goalX = 22.225;
+                $scope.goalY = 33.335;
+                $scope.goalZ = 88.885;
+
+                $scope.leftMotorFromSystem = 0.0;
+                $scope.rightMotorFromSystem = 0.0;
+
+                $scope.waypoints = [
+                    {
+                        "x": 11.115,
+                        "y": 22.225,
+                        "z": 33.353
+                    },
+                    {
+                        "x": 44.445,
+                        "y": 33.335,
+                        "z": 22.252
+                    }
+                ];
 
                 $scope.rightMotor = 0;
                 $scope.leftMotor = 0;
                 $scope.previousLeftMotor = 0;
                 $scope.previousRightMotor = 0;
 
-                var gamepads = navigator.getGamepads();
-                if (gamepads.length > 0 && gamepads[0]) {
-                    $scope.gamepadIndex = 0;
-                } else {
-                    $scope.gamepadIndex = -1;
-                }
+                //var gamepads = navigator.getGamepads();
+                //if (gamepads.length > 0 && gamepads[0]) {
+                //    $scope.gamepadIndex = 0;
+                //} else {
+                //    $scope.gamepadIndex = -1;
+                //}
 
-                window.addEventListener("gamepadconnected", function(e) {
-                    console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
-                        e.gamepad.index, e.gamepad.id,
-                        e.gamepad.buttons.length, e.gamepad.axes.length);
-                    $scope.gamepadIndex = e.gamepad.index;
-                });
+                //window.addEventListener("gamepadconnected", function(e) {
+                //    console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
+                //        e.gamepad.index, e.gamepad.id,
+                //        e.gamepad.buttons.length, e.gamepad.axes.length);
+                //    $scope.gamepadIndex = e.gamepad.index;
+                //});
 
-                window.addEventListener("gamepaddisconnected", function(e) {
-                    console.log("Gamepad disconnected.");
-                    $scope.gamepadIndex = -1;
-                });
+                //window.addEventListener("gamepaddisconnected", function(e) {
+                //    console.log("Gamepad disconnected.");
+                //    $scope.gamepadIndex = -1;
+                //});
 
                 $scope.roundFloatForDisplay = function(val) {
                     if (val != null)
@@ -264,75 +245,69 @@
                     $scope.submitMotors();
                 };
 
-                $interval(function() {
-                    $http({
-                        method: 'GET',
-                        url: '/data'
-                    }).then(function successCallback(response) {
-                        $scope.lidarImageData = response.data.image_lidar;
-                        $scope.xtionRgbImageData = response.data.image_xtion_rgb;
-                        $scope.xtionDepthImageData = response.data.image_xtion_depth;
-                        $scope.bottomCameraImageData = response.data.image_bottom_camera;
+                //$interval(function() {
+                //    $http({
+                //        method: 'GET',
+                //        url: '/data'
+                //    }).then(function successCallback(response) {
+                //        $scope.plannerDebugImage = response.data.planner_debug_image;
 
-                        $scope.accelX = response.data.imu.ax;
-                        $scope.accelY = response.data.imu.ay;
-                        $scope.accelZ = response.data.imu.az;
-                        $scope.gyroX = response.data.imu.gx;
-                        $scope.gyroY = response.data.imu.gy;
-                        $scope.gyroZ = response.data.imu.gz;
-                        $scope.magX = response.data.imu.mx;
-                        $scope.magY = response.data.imu.my;
-                        $scope.magZ = response.data.imu.mz;
+                //        $scope.currentX = response.data.current_x;
+                //        $scope.currentY = response.data.current_y;
+                //        $scope.currentZ = response.data.current_z;
+                //        $scope.goalX = response.data.goal_x;
+                //        $scope.goalY = response.data.goal_y;
+                //        $scope.goalZ = response.data.goal_z;
+                //        $scope.leftMotorFromSystem = response.data.left_motor;
+                //        $scope.rightMotorFromSystem = response.data.right_motor;
 
-                        $scope.longitude = response.data.gps.longitude;
-                        $scope.latitude = response.data.gps.latitude;
-                        $scope.altitude = response.data.gps.altitude;
-                    }, function errorCallback(error) {
-                        console.log(error);
-                    });
-                }, 100);
+                //        $scope.waypoints = response.data.waypoints;
+                //    }, function errorCallback(error) {
+                //        console.log(error);
+                //    });
+                //}, 100);
 
-                $interval(function() {
-                    if ($scope.gamepadIndex >= 0) {
-                        $scope.gamepad = navigator.getGamepads()[$scope.gamepadIndex];
-                        if ($scope.gamepad == null) {
-                            return;
-                        }
-                        // Right stick is 0,1; left stick is 3,4
-                        // Up down is inverted
-                        var leftRight = $scope.gamepad.axes[3];
-                        var upDown = -1.0 * $scope.gamepad.axes[4];
+                //$interval(function() {
+                //    if ($scope.gamepadIndex >= 0) {
+                //        $scope.gamepad = navigator.getGamepads()[$scope.gamepadIndex];
+                //        if ($scope.gamepad == null) {
+                //            return;
+                //        }
+                //        // Right stick is 0,1; left stick is 3,4
+                //        // Up down is inverted
+                //        var leftRight = $scope.gamepad.axes[3];
+                //        var upDown = -1.0 * $scope.gamepad.axes[4];
 
-                        // www.impulseadventure.com/elec/robot-differential-steering.html
-                        var driveLeft = 0;
-                        var driveRight = 0;
-                        var pivotLeft = leftRight;
-                        var pivotRight = -1.0 * leftRight;
+                //        // www.impulseadventure.com/elec/robot-differential-steering.html
+                //        var driveLeft = 0;
+                //        var driveRight = 0;
+                //        var pivotLeft = leftRight;
+                //        var pivotRight = -1.0 * leftRight;
 
-                        if (leftRight >= 0 && upDown >= 0) {
-                            driveLeft = upDown;
-                            driveRight = 1.0 - leftRight;
-                        } else if (leftRight < 0 && upDown >= 0) {
-                            driveLeft = 1.0 - (-1.0 * leftRight);
-                            driveRight = upDown;
-                        } else if (leftRight < 0 && upDown < 0) {
-                            driveLeft = upDown;
-                            driveRight = -1.0 + (-1.0 * leftRight);
-                        } else {
-                            driveLeft = -1.0 + leftRight;
-                            driveRight = upDown;
-                        }
+                //        if (leftRight >= 0 && upDown >= 0) {
+                //            driveLeft = upDown;
+                //            driveRight = 1.0 - leftRight;
+                //        } else if (leftRight < 0 && upDown >= 0) {
+                //            driveLeft = 1.0 - (-1.0 * leftRight);
+                //            driveRight = upDown;
+                //        } else if (leftRight < 0 && upDown < 0) {
+                //            driveLeft = upDown;
+                //            driveRight = -1.0 + (-1.0 * leftRight);
+                //        } else {
+                //            driveLeft = -1.0 + leftRight;
+                //            driveRight = upDown;
+                //        }
 
-                        var pivotMultiplier = Math.max(0, 1.0 - (4.0 * Math.abs(upDown)));
-                        var driveMultiplier = 1.0 - pivotMultiplier;
+                //        var pivotMultiplier = Math.max(0, 1.0 - (4.0 * Math.abs(upDown)));
+                //        var driveMultiplier = 1.0 - pivotMultiplier;
 
-                        var max_speed = 50;
-                        $scope.leftMotor = (max_speed * ((pivotMultiplier * pivotLeft) + (driveMultiplier * driveLeft))).toFixed(2);
-                        $scope.rightMotor = (max_speed * ((pivotMultiplier * pivotRight) + (driveMultiplier * driveRight))).toFixed(2);
+                //        var max_speed = 50;
+                //        $scope.leftMotor = (max_speed * ((pivotMultiplier * pivotLeft) + (driveMultiplier * driveLeft))).toFixed(2);
+                //        $scope.rightMotor = (max_speed * ((pivotMultiplier * pivotRight) + (driveMultiplier * driveRight))).toFixed(2);
 
-                        $scope.submitMotors();
-                    }
-                }, 100);
+                //        $scope.submitMotors();
+                //    }
+                //}, 100);
             }]);
         </script>
     </body>

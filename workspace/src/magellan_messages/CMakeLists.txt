@@ -18,6 +18,7 @@ add_message_files(
     MsgMagellanImu.msg
     MsgMagellanDrive.msg
     MsgMagellanOccupancyGrid.msg
+    MsgMagellanPlannerDebug.msg
     MsgObstacleDetectorConfig.msg
     MsgVisualOdometryDebug.msg
     MsgVisualOdometry.msg
