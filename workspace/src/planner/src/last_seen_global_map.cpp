@@ -23,15 +23,14 @@ LastSeenGlobalMap::LastSeenGlobalMap(
     this->num_y_squares = static_cast<int>(
         ceil((max_world_y - min_world_y) / resolution_in_m));
 
-    this->grid.map_metadata.height = this->num_y_squares;
-    this->grid.map_metadata.width = this->num_x_squares;
+    this->grid.map_metadata.height = this->num_x_squares;
+    this->grid.map_metadata.width = this->num_y_squares;
     this->grid.map_metadata.resolution = resolution_in_m;
     this->grid.map_metadata.origin.position.x = this->min_world_x;
     this->grid.map_metadata.origin.position.y = this->min_world_y;
 
     this->grid.matrix.clear();
     this->grid.matrix.resize(this->num_x_squares*this->num_y_squares, 0);
-
 }
 
 void LastSeenGlobalMap::update_map(
@@ -51,15 +50,13 @@ void LastSeenGlobalMap::update_map(
 
     for (size_t i = 0; i < obstacles.matrix.size(); i++)
     {
-        if (obstacles.matrix[i] == -1 //obstacle
-                ||
-            obstacles.matrix[i] > 0) // cone
+        if (obstacles.matrix[i] >= -1)
         {
             geometry_msgs::Point local_point;
             local_point.x = 
-                (static_cast<int>(i % obstacles.map_metadata.width) + 0.5) * obstacles.map_metadata.resolution;
+                (static_cast<int>(i / obstacles.map_metadata.width) + 0.5) * obstacles.map_metadata.resolution;
             local_point.y = 
-                (static_cast<int>(i / obstacles.map_metadata.height) + 0.5) * obstacles.map_metadata.resolution;
+                (static_cast<int>(i % obstacles.map_metadata.width) + 0.5) * obstacles.map_metadata.resolution;
             local_point.z = 0;
 
             // Transform into zed coordinates
@@ -81,7 +78,7 @@ void LastSeenGlobalMap::update_map(
             x_bin = std::max(std::min(this->num_x_squares - 1, x_bin), 0);
             y_bin = std::max(std::min(this->num_y_squares - 1, y_bin), 0);
 
-            this->grid.matrix[(y_bin*this->num_x_squares)  + x_bin] = obstacles.matrix[i];
+            this->grid.matrix[(x_bin*this->num_y_squares)  + y_bin] = obstacles.matrix[i];
         }
     }
 }

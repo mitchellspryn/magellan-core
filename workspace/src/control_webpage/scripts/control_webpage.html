@@ -245,27 +245,30 @@
                     $scope.submitMotors();
                 };
 
-                //$interval(function() {
-                //    $http({
-                //        method: 'GET',
-                //        url: '/data'
-                //    }).then(function successCallback(response) {
-                //        $scope.plannerDebugImage = response.data.planner_debug_image;
+                $interval(function() {
+                    $http({
+                        method: 'GET',
+                        url: '/data'
+                    }).then(function successCallback(response) {
+                        $scope.plannerDebugImage = response.data.planner_debug_image;
 
-                //        $scope.currentX = response.data.current_x;
-                //        $scope.currentY = response.data.current_y;
-                //        $scope.currentZ = response.data.current_z;
-                //        $scope.goalX = response.data.goal_x;
-                //        $scope.goalY = response.data.goal_y;
-                //        $scope.goalZ = response.data.goal_z;
-                //        $scope.leftMotorFromSystem = response.data.left_motor;
-                //        $scope.rightMotorFromSystem = response.data.right_motor;
+                        $scope.currentX = response.data.current_x;
+                        $scope.currentY = response.data.current_y;
+                        $scope.currentZ = response.data.current_z;
+                        $scope.currentRoll = response.data.current_roll;
+                        $scope.currentPitch = response.data.current_pitch;
+                        $scope.currentYaw = response.data.current_yaw;
+                        $scope.goalX = response.data.goal_x;
+                        $scope.goalY = response.data.goal_y;
+                        $scope.goalZ = response.data.goal_z;
+                        $scope.leftMotorFromSystem = response.data.left_motor;
+                        $scope.rightMotorFromSystem = response.data.right_motor;
 
-                //        $scope.waypoints = response.data.waypoints;
-                //    }, function errorCallback(error) {
-                //        console.log(error);
-                //    });
-                //}, 100);
+                        $scope.waypoints = response.data.waypoints;
+                    }, function errorCallback(error) {
+                        console.log(error);
+                    });
+                }, 100);
 
                 //$interval(function() {
                 //    if ($scope.gamepadIndex >= 0) {

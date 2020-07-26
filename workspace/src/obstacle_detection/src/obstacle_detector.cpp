@@ -398,8 +398,8 @@ void ObstacleDetector::generate_output_message(
         }
     }
 
-    int num_squares_wide = static_cast<int>(ceil((max_x - min_x) / this->occupancy_matrix_grid_square_size));
-    int num_squares_tall = static_cast<int>(ceil((max_y - min_y) / this->occupancy_matrix_grid_square_size));
+    int num_squares_wide = static_cast<int>(ceil((max_y - min_y) / this->occupancy_matrix_grid_square_size));
+    int num_squares_tall = static_cast<int>(ceil((max_x - min_x) / this->occupancy_matrix_grid_square_size));
 
     std::vector<PointAggregatorType_t> counters(num_squares_wide*num_squares_tall);
     for (int i = 0; i < this->num_points; i++)
@@ -414,7 +414,7 @@ void ObstacleDetector::generate_output_message(
 
         int occ_x = (point.x - min_x) / this->occupancy_matrix_grid_square_size;
         int occ_y = (point.y - min_y) / this->occupancy_matrix_grid_square_size;
-        int packed = (occ_y * num_squares_wide) + occ_x;
+        int packed = (occ_x * num_squares_wide) + occ_y;
 
         // This gives a small chance that two cones overlap in a square.
         // Even if this does happen in practice, it should be rare.
@@ -434,11 +434,11 @@ void ObstacleDetector::generate_output_message(
     }
 
     obstacle_detection_result.matrix.resize(num_squares_tall*num_squares_wide);
-    for (int y = 0; y < num_squares_tall; y++)
+    for (int y = 0; y < num_squares_wide; y++)
     {
-        for (int x = 0; x < num_squares_wide; x++)
+        for (int x = 0; x < num_squares_tall; x++)
         {
-            int packed = (y*num_squares_wide) + x;
+            int packed = (x*num_squares_wide) + y;
             const PointAggregatorType_t &agg = counters[packed];
 
             if (agg.unsafe_count >= agg.safe_count

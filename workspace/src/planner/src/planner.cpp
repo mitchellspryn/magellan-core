@@ -1,10 +1,11 @@
 #include "../include/planner.hpp"
+#include "geometry_msgs/PoseStamped.h"
 #include "magellan_messages/MsgMagellanDrive.h"
 
 Planner::Planner()
 {
-    this->goal_position.x = 0;
-    this->goal_position.y = 0;
+    this->goal_position.x = 10;
+    this->goal_position.y = 5;
     this->goal_position.z = 0;
 
     this->reinitialize();
@@ -23,33 +24,48 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
     debug_msg.global_obstacle_map = this->global_map->get_map();
     debug_msg.goal = this->get_goal_position();
 
-    if (!this->path_validator->is_path_valid(pose, this->planned_path, *(this->global_map)))
-    {
-        geometry_msgs::Pose tmp;
-        tmp.position = this->goal_position;
+    geometry_msgs::PoseStamped p1;
+    geometry_msgs::PoseStamped p2;
 
-        bool path_found = this->path_generator->update_path(pose, tmp, *(this->global_map), this->planned_path);
+    p1.pose.position.x = 1;
+    p1.pose.position.y = 1;
 
-        if (!path_found)
-        {
-            ROS_ERROR("Cannot find path to goal.");
-            magellan_messages::MsgMagellanDrive result;
-            result.left_throttle = 0;
-            result.right_throttle = 0;
-            debug_msg.path = this->planned_path;
-            debug_msg.control_signals = result;
-            return result;
-        }
-    }
+    p2.pose.position.x = 7;
+    p2.pose.position.y = 5;
 
-    // TODO: remove points as we get close to them.
-    // Should the planner do that, should the path validator, or should another module?
+    debug_msg.path.poses.push_back(p1);
+    debug_msg.path.poses.push_back(p2);
 
-    magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
+    //if (!this->path_validator->is_path_valid(pose, this->planned_path, *(this->global_map)))
+    //{
+    //    geometry_msgs::Pose tmp;
+    //    tmp.position = this->goal_position;
 
-    debug_msg.control_signals = signals;
-    debug_msg.path = this->planned_path;
+    //    bool path_found = this->path_generator->update_path(pose, tmp, *(this->global_map), this->planned_path);
 
+    //    if (!path_found)
+    //    {
+    //        ROS_ERROR("Cannot find path to goal.");
+    //        magellan_messages::MsgMagellanDrive result;
+    //        result.left_throttle = 0;
+    //        result.right_throttle = 0;
+    //        debug_msg.path = this->planned_path;
+    //        debug_msg.control_signals = result;
+    //        return result;
+    //    }
+    //}
+
+    //// TODO: remove points as we get close to them.
+    //// Should the planner do that, should the path validator, or should another module?
+
+    //magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
+
+    //debug_msg.control_signals = signals;
+    //debug_msg.path = this->planned_path;
+    
+    magellan_messages::MsgMagellanDrive signals;
+    signals.left_throttle = 12;
+    signals.right_throttle = 22;
     return signals;
 }
 

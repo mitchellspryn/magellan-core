@@ -12,7 +12,9 @@ import numpy as np
 import pandas as pd
 import math
 import json
+import copy
 
+from std_msgs.msg import Bool
 from sensor_msgs.msg import Image, LaserScan, NavSatFix
 from nav_msgs.msg import Path
 from magellan_messages.msg import MsgMagellanDrive, MsgMagellanImu, MsgMagellanPlannerDebug
@@ -30,6 +32,7 @@ planner_debug_data = {'debug_image': planner_debug_image}
 planner_debug_lock = threading.Lock()
 
 publisher_motor_controller = None
+publisher_kill_switch = None
 
 last_client_request_time = datetime.datetime.utcnow()
 pause_request_time = datetime.timedelta(seconds=5)
@@ -40,12 +43,16 @@ def cv_to_byte_stream(frame):
     ret, jpg = cv2.imencode('.jpeg', frame)
     return 'data:image/jpeg;charset=utf-8;base64,' + base64.b64encode(jpg).decode('utf-8')
 
-def draw_planner_debug_image(data):
-    image_size_px = 800
-    image = np.zeros((image_size_px, image_size_px, 3), dtype=np.uint8)
+def m_to_px(m, min_m, max_m, image_dim):
+    num = m - min_m
+    norm = num / max_m
+    return int(norm * image_dim)
 
-    num_cells_wide = data.global_obstacle_map.map_metadata.width
-    num_cells_tall = data.global_obstacle_map.map_metadata.height
+def draw_planner_debug_image(data):
+    image_size_px = 1200
+
+    num_cells_wide = data.global_obstacle_map.map_metadata.width  # y
+    num_cells_tall = data.global_obstacle_map.map_metadata.height # x
 
     larger_size_cells = max(num_cells_tall, num_cells_wide)
     
@@ -58,17 +65,22 @@ def draw_planner_debug_image(data):
     
     origin = data.global_obstacle_map.map_metadata.origin.position
     resolution = data.global_obstacle_map.map_metadata.resolution
-    m_to_px = resolution * grid_size_px
     waypoint_size = 10
+    image = np.zeros((grid_size_px*num_cells_tall, grid_size_px*num_cells_wide, 3), dtype=np.uint8)
+
+    max_m_width = resolution*num_cells_wide
+    max_m_height = resolution*num_cells_tall
 
     # Color each cell according to global grid
-    for y in range(0, num_cells_wide, 1):
-        for x in range(0, num_cells_tall, 1):
-            status = data.global_obstacle_map.matrix[(y * num_cells_tall) + x]
+    for x in range(0, num_cells_tall, 1):
+        for y in range(0, num_cells_wide, 1):
+            status = data.global_obstacle_map.matrix[(x * num_cells_wide) + y]
 
-            if (status != 0):
-                if (status == -1):
-                    color = (0, 0, 0)
+            if (status != -3):
+                if (status == 0):
+                    color = (0, 255, 0)
+                elif (status == -1):
+                    color = (0, 0, 255)
                 elif (status == 1):
                     color = (255, 0, 255)
                 elif (status == 2):
@@ -77,53 +89,68 @@ def draw_planner_debug_image(data):
                     color = (255, 255, 0)
                 elif (status == 4):
                     color = (255, 128, 255)
+                else:
+                    raise ValueError('Status = {0}'.format(status))
 
-                pt1 = (y*grid_size_px, x*grid_size_px)
+                pt1 = (y*grid_size_px,x*grid_size_px)
                 pt2 = ((y+1)*grid_size_px, (x+1)*grid_size_px)
 
                 cv2.rectangle(image, pt1, pt2, color, -1)
 
-
     # Draw the grid lines
     for y in range(0, num_cells_wide, 1):
-        cv2.line(image, (y*grid_size_px, 0), ((y+1)*grid_size_px, max_height), (0, 0, 0), 2)
+        cv2.line(image, (y*grid_size_px, 0), (y*grid_size_px, max_height), (0, 0, 0), 1)
     for x in range(0, num_cells_tall, 1):
-        cv2.line(image, (0, x*grid_size_px), (max_width, (x+1)*grid_size_px), (0, 0, 0), 2)
+        cv2.line(image, (0, x*grid_size_px), (max_width, x*grid_size_px), (0, 0, 0), 1)
 
-    # Draw the waypoints
+    ## Draw the waypoints
     for waypoint in data.path.poses:
-        point_x = (waypoint.pose.position.x - origin.x) * m_to_px
-        point_y = (waypoint.pose.position.y - origin.y) * m_to_px
+        point_x = m_to_px(waypoint.pose.position.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
+        point_y = m_to_px(waypoint.pose.position.y, origin.y, max_m_width, num_cells_wide*grid_size_px)
 
-        cv2.circle(image, (point_y, point_x), waypoint_size, (0, 255, 0), -1)
+        cv2.circle(image, (point_y, point_x), waypoint_size, (160, 30, 160), -1)
 
     # Draw the goal point
-    goal_x = (data.goal.x - origin.x) * m_to_px
-    goal_y = (data.goal.y - origin.y) * m_to_px
-    cv2.circle(image, (point_y, point_x), waypoint_size, (255, 0, 0), -1)
+    goal_x = m_to_px(data.goal.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    goal_y = m_to_px(data.goal.y, origin.y, max_m_width, num_cells_wide*grid_size_px)
+    cv2.circle(image, (goal_y, goal_x), waypoint_size, (255, 0, 0), -1)
 
     # Draw the current pose
-    current_tip_x = (data.pose.pose.pose.position.x - origin.x) * m_to_px
-    current_tip_y = (data.pose.pose.pose.position.y - origin.y) * m_to_px
+    current_tip_x = m_to_px(data.pose.pose.pose.position.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    current_tip_y = m_to_px(data.pose.pose.pose.position.y, origin.y, max_m_width, num_cells_wide*grid_size_px)
     roll, pitch, yaw = quat_to_rpy(data.pose.pose.pose.orientation)
 
-    arrow_length = 30
-    current_foot_x = current_tip_x - (cos(yaw) * arrow_length)
-    current_foot_y = current_tip_y - (sin(yaw) * arrow_length)
-    cv2.arrowedLine(image, (current_foot_y, current_foot_x), (current_tip_y, current_tip_x), (0, 0, 255), 3)
+    arrow_length_m = 1
+    current_foot_x = m_to_px(data.pose.pose.pose.position.x - (math.cos(yaw) * arrow_length_m), origin.x, max_m_height, num_cells_tall*grid_size_px)
+    current_foot_y = m_to_px(data.pose.pose.pose.position.y - (math.sin(yaw) * arrow_length_m), origin.y, max_m_width, num_cells_wide*grid_size_px)
+
+    cv2.arrowedLine(image, (current_foot_y, current_foot_x), (current_tip_y, current_tip_x), (0, 0, 255), 4)
 
     # Draw the current visible area
-    local_map_metadata_origin_minx = (data.pose.pose.pose.position.x + data.local_obstacle_map.map_metadata.origin.position.x)
-    local_map_metadata_origin_miny = (data.pose.pose.pose.position.y + data.local_obstacle_map.map_metadata.origin.position.y)
-    local_map_metadata_origin_maxx = ((data.local_obstacle_map.map_metadata.height * m_to_px) * cos(yaw)) + local_map_metadata_origin_minx
-    local_map_metadata_origin_maxy = ((data.local_obstacle_map.map_metadata.width * m_to_px) * sin(yaw)) + local_map_metadata_origin_miny
+    zed_minx = data.local_obstacle_map.map_metadata.origin.position.x
+    zed_miny = data.local_obstacle_map.map_metadata.origin.position.y
+    zed_maxx = zed_minx + (data.local_obstacle_map.map_metadata.resolution * data.local_obstacle_map.map_metadata.height)
+    zed_maxy = zed_miny + (data.local_obstacle_map.map_metadata.resolution * data.local_obstacle_map.map_metadata.width)
+
+    cy = math.cos(yaw)
+    sy = math.sin(yaw)
+
+    g_minx = ((cy*zed_minx) - (sy*zed_miny)) + data.pose.pose.pose.position.x
+    g_miny = ((sy*zed_minx) + (cy*zed_miny)) + data.pose.pose.pose.position.y
+    g_maxx = ((cy*zed_maxx) - (sy*zed_maxy)) + data.pose.pose.pose.position.x
+    g_maxy = ((sy*zed_maxx) + (cy*zed_maxy)) + data.pose.pose.pose.position.y
+
+    g_minx_px = m_to_px(g_minx, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    g_miny_px = m_to_px(g_miny, origin.y, max_m_width, num_cells_wide*grid_size_px)
+    g_maxx_px = m_to_px(g_maxx, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    g_maxy_px = m_to_px(g_maxy, origin.y, max_m_width, num_cells_wide*grid_size_px)
 
     color = (255, 0, 0)
     thickness = 2
-    cv2.line(image, (local_map_metadata_origin_minx, local_map_metadata_origin_miny), (local_map_metadata_origin_minx, local_map_metadata_origin_maxy), color, thickness) 
-    cv2.line(image, (local_map_metadata_origin_minx, local_map_metadata_origin_maxy), (local_map_metadata_origin_maxx, local_map_metadata_origin_maxy), color, thickness) 
-    cv2.line(image, (local_map_metadata_origin_maxx, local_map_metadata_origin_maxy), (local_map_metadata_origin_maxx, local_map_metadata_origin_miny), color, thickness) 
-    cv2.line(image, (local_map_metadata_origin_maxx, local_map_metadata_origin_miny), (local_map_metadata_origin_minx, local_map_metadata_origin_miny), color, thickness) 
+    cv2.line(image, (g_miny_px, g_minx_px), (g_miny_px, g_maxx_px), color, thickness) 
+    cv2.line(image, (g_miny_px, g_maxx_px), (g_maxy_px, g_maxx_px), color, thickness) 
+    cv2.line(image, (g_maxy_px, g_maxx_px), (g_maxy_px, g_minx_px), color, thickness) 
+    cv2.line(image, (g_maxy_px, g_minx_px), (g_miny_px, g_minx_px), color, thickness) 
 
     return image
 
@@ -152,8 +179,8 @@ def process_planner_debug_message(data):
     global last_client_request_time
     global pause_request_time
 
-    if (datetime.datetime.utcnow() - last_client_request_time > pause_request_time):
-        return 
+    #if (datetime.datetime.utcnow() - last_client_request_time > pause_request_time):
+    #    return 
 
     roll, pitch, yaw = quat_to_rpy(data.pose.pose.pose.orientation)
 
@@ -163,6 +190,7 @@ def process_planner_debug_message(data):
         local_point['x'] = waypoint.pose.position.x
         local_point['y'] = waypoint.pose.position.y
         local_point['z'] = waypoint.pose.position.z
+        waypoints.append(local_point)
 
     local_data = {}
     local_data['debug_image'] = cv_to_byte_stream(draw_planner_debug_image(data))
@@ -203,7 +231,8 @@ def set_motor_controls():
     message.right_throttle = float(motor_control_data['right_throttle'])
 
     publisher_motor_controller.publish(message)
-    # TODO: make this also kill the autonomous system
+
+    publisher_kill_switch.publish(True)
 
     # Return dummy response to make the framework happy
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
@@ -219,7 +248,7 @@ def get_cached_topic_data():
     with planner_debug_lock:
         return_data = copy.deepcopy(planner_debug_data)
 
-    return flask.jsonify(return_data)
+    return json.dumps(return_data), 200, {'ContentType':'application/json'}
 
 # Use this to cleanly kill the webpage when ctrl+c is pressed
 def sig_handler(sig, frame):
@@ -232,8 +261,9 @@ def main():
 
     rospy.init_node('control_webpage')
 
-    subscriber_planner_debug = rospy.Subscriber('input_planner_debug', MsgMagellanPlannerDebug, process_planner_debug_message, queue_size=1)
-    publisher_motor_controller = rospy.Publisher('output_motor_control', MsgMagellanDrive, queue_size=1)
+    subscriber_planner_debug = rospy.Subscriber('input_topic_planner_debug', MsgMagellanPlannerDebug, process_planner_debug_message, queue_size=1)
+    publisher_motor_controller = rospy.Publisher('output_topic_motor_control', MsgMagellanDrive, queue_size=1)
+    publisher_kill_switch = rospy.Publisher('output_topic_kill_switch', Bool, queue_size=1)
 
     signal.signal(signal.SIGINT, sig_handler)
 
