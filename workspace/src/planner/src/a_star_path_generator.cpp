@@ -3,10 +3,13 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "magellan_messages/MsgMagellanOccupancyGrid.h"
 #include "magellan_messages/MsgZedPose.h"
-#include <queue>
 
 AStarPathGenerator::AStarPathGenerator(float obstacle_expansion_size_m)
-    : obstacle_expansion_size_m(obstacle_expansion_size_m) {}
+    : obstacle_expansion_size_m(obstacle_expansion_size_m) 
+{
+    this->validator = std::unique_ptr<SimplePathValidator>(
+            new SimplePathValidator());
+}
 
 bool AStarPathGenerator::update_path(
     const magellan_messages::MsgZedPose &current_pose,
@@ -14,7 +17,11 @@ bool AStarPathGenerator::update_path(
     const GlobalMap &world_grid,
     nav_msgs::Path &path) 
 {
-    return true;
+    this->initialize_grids(world_grid);
+    return this->run_astar(current_pose, 
+            goal_pose,
+            world_grid,
+            path);
 }
 
 void AStarPathGenerator::initialize_grids(const GlobalMap &world_map)
@@ -100,7 +107,6 @@ bool AStarPathGenerator::run_astar(
         if (current_packed_index == goal_packed_index)
         {
             path_found = true;
-            this->grid[current_packed_index].parent_index = current_packed_index;
             break;
         }
 
@@ -131,6 +137,7 @@ bool AStarPathGenerator::run_astar(
                 next.sort_value = next_cost_from_start + astar_heuristic(
                     OccupancyGridSquare_t(xx, yy),
                     goal_square);
+                next.cost_from_start = next.sort_value; // TODO: is this redundant?
 
                 queue.emplace(next_index);
             }
@@ -200,7 +207,7 @@ bool AStarPathGenerator::run_astar(
         geometry_msgs::PoseStamped tmp;
         tmp.header.frame_id = "map";
         tmp.pose.position = final_pose.position;
-        path.poses.push_back(tmp);
+        path.poses.push_back(tmp); // TODO: is this redundant?
     }
 
     return true;
