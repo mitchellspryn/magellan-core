@@ -167,7 +167,9 @@ bool AStarPathGenerator::run_astar(
     geometry_msgs::PoseStamped current_waypoint;
     current_waypoint.header.frame_id = "map";
     current_waypoint.pose = current_pose.pose.pose;
-    path.poses.push_back(current_waypoint);
+    
+    // Do not put current pose into the list of waypoints.
+    //path.poses.push_back(current_waypoint);
 
     geometry_msgs::Point previous_point = current_pose.pose.pose.position;
     geometry_msgs::Point next_point = current_pose.pose.pose.position;
@@ -196,7 +198,7 @@ bool AStarPathGenerator::run_astar(
         }
     }
 
-    geometry_msgs::Point &last_point = path.poses[path.poses.size() - 1].pose.position;
+    geometry_msgs::Point &last_point = current_waypoint.pose.position;
 
     if ((last_point.x != final_pose.position.x)
         ||

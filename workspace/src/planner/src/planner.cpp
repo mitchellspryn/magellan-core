@@ -9,7 +9,6 @@ Planner::Planner()
     this->goal_position.z = 0;
 
     this->reinitialize();
- 
 }
 
 magellan_messages::MsgMagellanDrive Planner::run_planner(
@@ -55,17 +54,14 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
         }
     }
 
-    //// TODO: remove points as we get close to them.
-    //// Should the planner do that, should the path validator, or should another module?
+    // TODO: remove points as we get close to them.
+    // Should the planner do that, should the path validator, or should another module?
 
-    //magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
+    magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
 
-    //debug_msg.control_signals = signals;
-    //debug_msg.path = this->planned_path;
+    debug_msg.control_signals = signals;
+    debug_msg.path = this->planned_path;
     
-    magellan_messages::MsgMagellanDrive signals;
-    signals.left_throttle = 12;
-    signals.right_throttle = 22;
     return signals;
 }
 
@@ -115,6 +111,5 @@ void Planner::reinitialize()
         *(this->global_map),
         this->planned_path);
 
-    int j = 0;
-    (void)j;
+    this->planned_path.header.frame_id = "map";
 }

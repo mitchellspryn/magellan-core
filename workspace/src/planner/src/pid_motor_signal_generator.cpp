@@ -39,8 +39,7 @@ magellan_messages::MsgMagellanDrive PidMotorSignalGenerator::get_drive_signals(
             +
             (loc_to_next_waypoint.y * rotated_to_world.y));
 
-    //left turn
-    if (theta_error < 0)
+    if (theta_error > 0)
     {
         result.left_throttle = this->max_left_wheel_speed * cos(2*theta_error); 
         result.right_throttle = this->max_left_wheel_speed;
