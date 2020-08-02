@@ -145,7 +145,7 @@ sensor_msgs::PointCloud2 read_point_cloud_from_camera()
         float x, y, z, nx, ny, nz, confidence;
 
         x = (c * point_cloud_data->x) - (s * point_cloud_data->z);
-        y = point_cloud_data->y;
+        y = -1.0f * point_cloud_data->y;
         z = (s * point_cloud_data->x) + (c * point_cloud_data->z);
 
         nx = (c * normals_data->x) - (s * normals_data->z);

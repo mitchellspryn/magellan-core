@@ -304,9 +304,11 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                         float newnx = (cos_g_rot_theta*ptnx) - (sin_g_rot_theta*ptnz);
                         float newnz = (sin_g_rot_theta*ptnx) + (cos_g_rot_theta*ptnz);
 
+                        float yy = point_cloud_ptr->y * -1.0f;
+
                         memcpy(out_buf_ptr, &newx, 4);
                         out_buf_ptr += 4;
-                        memcpy(out_buf_ptr, &point_cloud_ptr->y, 4);
+                        memcpy(out_buf_ptr, &yy, 4);
                         out_buf_ptr += 4;
                         memcpy(out_buf_ptr, &newz, 4);
                         out_buf_ptr += 4;

@@ -7,7 +7,7 @@ ObstacleDetector::ObstacleDetector()
     float deg_to_rad = M_PI / 180.0f;
     float in_to_m = 0.0254f;
 
-    default_config.point_min_confidence = 50;
+    default_config.point_min_confidence = 80;
     default_config.point_max_distance = 20;
     default_config.normals_traversable_thresh = 10 * deg_to_rad;
     default_config.normals_untraversable_thresh = 30 * deg_to_rad;
