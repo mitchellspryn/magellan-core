@@ -32,6 +32,7 @@ add_executable(${PROJECT_NAME}_node src/ros_node.cpp
     src/last_seen_global_map.cpp
     src/pid_motor_signal_generator.cpp
     src/planner.cpp
+    src/simple_goal_point_adjuster.cpp
     src/simple_path_validator.cpp
     src/voting_global_map.cpp
 )

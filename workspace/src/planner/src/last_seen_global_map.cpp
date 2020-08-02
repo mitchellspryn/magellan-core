@@ -88,6 +88,11 @@ const magellan_messages::MsgMagellanOccupancyGrid& LastSeenGlobalMap::get_map() 
     return this->grid;
 }
 
+float LastSeenGlobalMap::get_resolution() const 
+{
+    return this->resolution_in_m;
+}
+
 OccupancyGridSquare_t LastSeenGlobalMap::real_to_grid(
     const geometry_msgs::Point &real_world_point) const
 {

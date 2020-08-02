@@ -14,11 +14,13 @@
 
 #include "a_star_path_generator.hpp"
 #include "global_map.hpp"
+#include "goal_point_adjuster.hpp"
 #include "last_seen_global_map.hpp"
 #include "motor_signal_generator.hpp"
 #include "path_generator.hpp"
 #include "path_validator.hpp"
 #include "pid_motor_signal_generator.hpp"
+#include "simple_goal_point_adjuster.hpp"
 #include "simple_path_validator.hpp"
 
 class Planner
@@ -39,6 +41,7 @@ class Planner
         std::unique_ptr<MotorSignalGenerator> motor_signal_generator;
         std::unique_ptr<PathGenerator> path_generator;
         std::unique_ptr<PathValidator> path_validator;
+        std::unique_ptr<GoalPointAdjuster> goal_point_adjuster;
 
         geometry_msgs::Point goal_position;
         nav_msgs::Path planned_path;

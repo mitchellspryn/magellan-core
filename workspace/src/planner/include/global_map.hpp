@@ -19,6 +19,7 @@ class GlobalMap
 
         virtual const magellan_messages::MsgMagellanOccupancyGrid& get_map() const = 0;
 
+        virtual float get_resolution() const = 0;
         virtual OccupancyGridSquare_t real_to_grid(const geometry_msgs::Point &real_world_point) const = 0;
         virtual geometry_msgs::Point grid_to_real(const OccupancyGridSquare_t &square) const = 0;
 };

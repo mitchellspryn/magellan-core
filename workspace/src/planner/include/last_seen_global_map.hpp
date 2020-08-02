@@ -29,6 +29,8 @@ class LastSeenGlobalMap : public GlobalMap
 
         virtual const magellan_messages::MsgMagellanOccupancyGrid& get_map() const override;
 
+        virtual float get_resolution() const override;
+
         virtual OccupancyGridSquare_t real_to_grid(const geometry_msgs::Point &real_world_point) const override;
 
         virtual geometry_msgs::Point grid_to_real(const OccupancyGridSquare_t &square) const override;

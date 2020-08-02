@@ -1,6 +1,8 @@
 #include "../include/planner.hpp"
 #include "geometry_msgs/PoseStamped.h"
 #include "magellan_messages/MsgMagellanDrive.h"
+#include "magellan_messages/MsgMagellanOccupancyGrid.h"
+#include <algorithm>
 
 Planner::Planner()
 {
@@ -20,22 +22,20 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
     debug_msg.pose = pose;
     this->global_map->update_map(pose, obstacles);  
 
+    // Recalculate the path in the following scenarios:
+    bool should_recalculate_path = 
+        // 1) We detect the cone, and have re-adjusted the goal pose.
+        this->goal_point_adjuster->adjust_goal_point(
+            *(this->global_map),
+            this->goal_position)
+        ||
+        // 2) New obstacles have been detected to make the path no longer valid.
+        !this->path_validator->is_path_valid(pose, this->planned_path, *(this->global_map));
+
     debug_msg.global_obstacle_map = this->global_map->get_map();
     debug_msg.goal = this->get_goal_position();
 
-    //geometry_msgs::PoseStamped p1;
-    //geometry_msgs::PoseStamped p2;
-
-    //p1.pose.position.x = 1;
-    //p1.pose.position.y = 1;
-
-    //p2.pose.position.x = 7;
-    //p2.pose.position.y = 5;
-
-    //debug_msg.path.poses.push_back(p1);
-    //debug_msg.path.poses.push_back(p2);
-
-    if (!this->path_validator->is_path_valid(pose, this->planned_path, *(this->global_map)))
+    if (should_recalculate_path)
     {
         geometry_msgs::Pose tmp;
         tmp.position = this->goal_position;
@@ -53,9 +53,6 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
             return result;
         }
     }
-
-    // TODO: remove points as we get close to them.
-    // Should the planner do that, should the path validator, or should another module?
 
     magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
 
@@ -95,7 +92,7 @@ void Planner::reinitialize()
             5,
             3 * in_to_m));
 
-    this->motor_signal_generator = std::unique_ptr<MotorSignalGenerator>(
+    this->motor_signal_generator = std::unique_ptr<PidMotorSignalGenerator>(
         new PidMotorSignalGenerator());
 
     this->path_generator = std::unique_ptr<AStarPathGenerator>(
@@ -103,6 +100,9 @@ void Planner::reinitialize()
 
     this->path_validator = std::unique_ptr<SimplePathValidator>(
         new SimplePathValidator());
+
+    this->goal_point_adjuster = std::unique_ptr<SimpleGoalPointAdjuster>(
+        new SimpleGoalPointAdjuster());
 
     // Must succeed, there are no obstacles yet.
     this->path_generator->update_path(
