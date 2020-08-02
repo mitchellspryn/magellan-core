@@ -205,7 +205,9 @@ void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *ste
 
         int y = good_point_packed / this->cloud_width;
         int x = good_point_packed % this->cloud_width;
-        int radius = 1;
+        // TODO: figure out how to tune this paramter
+        // Higher = longer runtime, but less chance of getting "walled in"
+        int radius = 3;
         const StereoVisionPoint_t good_point = stereo_cloud[good_point_packed];
         
         for (int dy = -radius; dy <= radius; dy++)
@@ -245,7 +247,7 @@ void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *ste
                     continue;
                 }
 
-                // Check that the normals aren't too far apart.
+                //// Check that the normals aren't too far apart.
                 float norm_dot = (new_point.nx*good_point.nx) + (new_point.ny*good_point.ny) + (new_point.nz*good_point.nz);
                 if (norm_dot < this->min_floodfill_norm_dot)
                 {
