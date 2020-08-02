@@ -24,10 +24,11 @@ class AStarPathGenerator : public PathGenerator
         AStarPathGenerator(float obstacle_expansion_size_m);
 
         virtual bool update_path(
-            const magellan_messages::MsgZedPose &current_pose,
-            const geometry_msgs::Pose &goal_pose,
-            const GlobalMap &world_grid,
-            nav_msgs::Path &path) override;
+            const magellan_messages::MsgZedPose& current_pose,
+            const geometry_msgs::Pose& goal_pose,
+            const GlobalMap& world_grid,
+            nav_msgs::Path& path,
+            magellan_messages::MsgMagellanOccupancyGrid& debug_grid) override;
 
     private:
         typedef struct AStarPoint
@@ -41,25 +42,41 @@ class AStarPathGenerator : public PathGenerator
         std::vector<AStarPoint_t> grid;
         float obstacle_expansion_size_m;
         std::unique_ptr<PathValidator> validator;
-        
 
-        void initialize_grids(const GlobalMap &world_grid);
+        static constexpr float waypoint_delete_distance_m = 0.15f * 0.15f; // approx 6 inches
+
+        void initialize_grids(
+            const GlobalMap& world_grid, 
+            magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
 
         void expand_obstacle(
                 int x, 
                 int y, 
                 int num_blocks,
-                const magellan_messages::MsgMagellanOccupancyGrid &grid);
+                const magellan_messages::MsgMagellanOccupancyGrid& grid,
+                magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
 
         bool run_astar(
-            const magellan_messages::MsgZedPose &current_pose,
-            const geometry_msgs::Pose &final_pose,
-            const GlobalMap &world_grid,
-            nav_msgs::Path &path);
+            const magellan_messages::MsgZedPose& current_pose,
+            const geometry_msgs::Pose& final_pose,
+            const GlobalMap& world_grid,
+            nav_msgs::Path& path);
 
         double astar_heuristic(
             const OccupancyGridSquare_t goal,
             const OccupancyGridSquare_t current);
+
+        bool is_path_valid(
+            const magellan_messages::MsgZedPose& current_pose,
+            const nav_msgs::Path& path,
+            const GlobalMap& global_map);
+
+        bool is_segment_valid(
+            const geometry_msgs::Point& start,
+            const geometry_msgs::Point& end,
+            const GlobalMap& global_map,
+            bool allow_cone_intersect);
+
 };
 
 #endif

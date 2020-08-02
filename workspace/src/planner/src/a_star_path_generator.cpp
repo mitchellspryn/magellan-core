@@ -3,6 +3,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "magellan_messages/MsgMagellanOccupancyGrid.h"
 #include "magellan_messages/MsgZedPose.h"
+#include "ros/ros.h"
 
 AStarPathGenerator::AStarPathGenerator(float obstacle_expansion_size_m)
     : obstacle_expansion_size_m(obstacle_expansion_size_m) 
@@ -15,21 +16,37 @@ bool AStarPathGenerator::update_path(
     const magellan_messages::MsgZedPose &current_pose,
     const geometry_msgs::Pose &goal_pose,
     const GlobalMap &world_grid,
-    nav_msgs::Path &path) 
+    nav_msgs::Path &path,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid) 
 {
-    this->initialize_grids(world_grid);
+    this->initialize_grids(world_grid, debug_grid);
+
+    if (this->is_path_valid(
+            current_pose,
+            path,
+            world_grid))
+    {
+        return true;
+    }
+
     return this->run_astar(current_pose, 
             goal_pose,
             world_grid,
             path);
 }
 
-void AStarPathGenerator::initialize_grids(const GlobalMap &world_map)
+void AStarPathGenerator::initialize_grids(
+    const GlobalMap &world_map,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid)
 {
     const magellan_messages::MsgMagellanOccupancyGrid world_grid = world_map.get_map();
 
     this->grid.clear();
     this->grid.resize(world_grid.matrix.size());
+
+    debug_grid.matrix.resize(world_grid.matrix.size(), 0);
+    debug_grid.map_metadata.width = world_grid.map_metadata.width;
+    debug_grid.map_metadata.height = world_grid.map_metadata.height;
     
     int num_expansion_blocks = static_cast<int>(ceil(
         this->obstacle_expansion_size_m / world_grid.map_metadata.resolution));
@@ -41,7 +58,7 @@ void AStarPathGenerator::initialize_grids(const GlobalMap &world_map)
             int x = i % world_grid.map_metadata.width;
             int y = i / world_grid.map_metadata.height;
 
-            this->expand_obstacle(x, y, num_expansion_blocks, world_grid);
+            this->expand_obstacle(x, y, num_expansion_blocks, world_grid, debug_grid);
         }
     }
 }
@@ -50,7 +67,8 @@ void AStarPathGenerator::expand_obstacle(
     int x, 
     int y, 
     int num_blocks,
-    const magellan_messages::MsgMagellanOccupancyGrid &grid)
+    const magellan_messages::MsgMagellanOccupancyGrid& grid,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid)
 {
     int min_x = std::max(0, x - num_blocks);
     int min_y = std::max(0, y - num_blocks);
@@ -62,6 +80,7 @@ void AStarPathGenerator::expand_obstacle(
         for (int xx = min_x; xx <= max_x; xx++)
         {
             this->grid[(yy*grid.map_metadata.width) + xx].is_obstacle = true; 
+            debug_grid.matrix[(yy*grid.map_metadata.width) + xx] = -1;
         }
     }
 }
@@ -221,4 +240,91 @@ double AStarPathGenerator::astar_heuristic(
     const OccupancyGridSquare_t current)
 {
     return std::abs(goal.x - current.x) + std::abs(goal.y - current.y); 
+}
+
+bool AStarPathGenerator::is_path_valid(
+    const magellan_messages::MsgZedPose &current_pose,
+    const nav_msgs::Path &path,
+    const GlobalMap &global_map)
+{
+    if (path.poses.size() == 0)
+    {
+        return true;
+    }
+
+    if (!this->is_segment_valid(
+            current_pose.pose.pose.position,
+            path.poses[0].pose.position,
+            global_map,
+            (path.poses.size() == 1)))
+    {
+        return false;
+    }
+
+    for (int i = 1; i < path.poses.size(); i++)
+    {
+        if (!this->is_segment_valid(
+                path.poses[i-1].pose.position,
+                path.poses[i].pose.position,
+                global_map,
+                (i == path.poses.size() - 1)))
+        {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool AStarPathGenerator::is_segment_valid(
+    const geometry_msgs::Point &start,
+    const geometry_msgs::Point &end,
+    const GlobalMap &global_map,
+    bool allow_cone_intersect)
+{
+    const magellan_messages::MsgMagellanOccupancyGrid &grid = global_map.get_map();
+    double step_size_in_m = grid.map_metadata.resolution;
+    double start_to_end_x = end.x - start.x;
+    double start_to_end_y = end.y - start.y;
+
+    if (start_to_end_x == 0 && start_to_end_y == 0)
+    {
+        return true;
+    }
+
+    double path_length = sqrt((start_to_end_x*start_to_end_x) + (start_to_end_y*start_to_end_y));
+    int num_steps = ceil(path_length / step_size_in_m);
+    start_to_end_x /= num_steps;
+    start_to_end_y /= num_steps;
+
+    geometry_msgs::Point work_point;
+    work_point.x = start.x;
+    work_point.y = start.y;
+    work_point.z = 0;
+
+
+    for (int i = 0; i < num_steps; i++)
+    {
+        OccupancyGridSquare_t square = global_map.real_to_grid(work_point);
+        int packed_idx = (square.y * grid.map_metadata.width) + square.x;
+
+        if (this->grid[packed_idx].is_obstacle)
+        {
+            return false;
+        }
+
+        //int8_t square_value = grid.matrix[(square.y*grid.map_metadata.width)+square.x];
+
+        //if ((square_value < 0) 
+        //    ||
+        //    ((square_value > 0) && (!allow_cone_intersect)))
+        //{
+        //    return false;
+        //}
+
+        work_point.x += start_to_end_x;
+        work_point.y += start_to_end_y;
+    }
+
+    return true;
 }

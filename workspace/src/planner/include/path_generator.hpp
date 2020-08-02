@@ -14,10 +14,11 @@ class PathGenerator
         virtual ~PathGenerator() {};
 
         virtual bool update_path(
-            const magellan_messages::MsgZedPose &current_pose,
-            const geometry_msgs::Pose &goal_pose,
-            const GlobalMap &world_grid,
-            nav_msgs::Path &path) = 0;
+            const magellan_messages::MsgZedPose& current_pose,
+            const geometry_msgs::Pose& goal_pose,
+            const GlobalMap& world_grid,
+            nav_msgs::Path& path,
+            magellan_messages::MsgMagellanOccupancyGrid& debug_grid) = 0;
 };
 
 #endif

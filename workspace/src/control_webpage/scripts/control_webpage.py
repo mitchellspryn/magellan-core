@@ -74,11 +74,22 @@ def draw_planner_debug_image(data):
     # Color each cell according to global grid
     for x in range(0, num_cells_tall, 1):
         for y in range(0, num_cells_wide, 1):
-            status = data.global_obstacle_map.matrix[(x * num_cells_wide) + y]
+            idx = (x * num_cells_wide) + y
+            status = data.global_obstacle_map.matrix[idx]
+
+            if (len(data.path_planner_debug_map.matrix) > idx):
+                obstacle_status = data.path_planner_debug_map.matrix[idx]
+            else:
+                obstacle_status = 0
 
             if (status != -3):
                 if (status == 0):
-                    color = (0, 255, 0)
+                    # Draw truly clear space as green.
+                    # Draw expanded obstacles as white
+                    if (obstacle_status == 0):
+                        color = (0, 255, 0)
+                    else:
+                        color = (255, 255, 255)
                 elif (status == -1):
                     color = (0, 0, 255)
                 elif (status == 1):
