@@ -28,7 +28,7 @@ bool AStarPathGenerator::update_path(
     {
         return true;
     }
-
+    
     return this->run_astar(current_pose, 
             goal_pose,
             world_grid,
@@ -61,6 +61,18 @@ void AStarPathGenerator::initialize_grids(
             this->expand_obstacle(x, y, num_expansion_blocks, world_grid, debug_grid);
         }
     }
+
+    // TODO: this is a kind of ham-fisted approach
+    for (int i = 0; i < world_grid.matrix.size(); i++)
+    {
+        if (world_grid.matrix[i] > 0)
+        {
+            int y = i % world_grid.map_metadata.width;
+            int x = i / world_grid.map_metadata.width;
+
+            this->clear_cone(x, y, num_expansion_blocks, world_grid, debug_grid);
+        }
+    }
 }
 
 void AStarPathGenerator::expand_obstacle(
@@ -85,12 +97,35 @@ void AStarPathGenerator::expand_obstacle(
     }
 }
 
+void AStarPathGenerator::clear_cone(
+    int x, 
+    int y, 
+    int num_blocks,
+    const magellan_messages::MsgMagellanOccupancyGrid& grid,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid)
+{
+    int min_x = std::max(0, x - num_blocks);
+    int min_y = std::max(0, y - num_blocks);
+    int max_x = std::min(static_cast<int>(grid.map_metadata.height - 1), x + num_blocks);
+    int max_y = std::min(static_cast<int>(grid.map_metadata.width - 1), y + num_blocks);
+
+    for (int yy = min_y; yy <= max_y; yy++)
+    {
+        for (int xx = min_x; xx <= max_x; xx++)
+        {
+            this->grid[(xx*grid.map_metadata.width) + yy].is_obstacle = false; 
+            debug_grid.matrix[(xx*grid.map_metadata.width) + yy] = 0;
+        }
+    }
+}
+
 bool AStarPathGenerator::run_astar(
     const magellan_messages::MsgZedPose &current_pose,
     const geometry_msgs::Pose &final_pose,
     const GlobalMap &world_map,
     nav_msgs::Path &path)
 {
+    // TODO: this takes a really long time if there is no valid path.
     path.poses.clear();
     OccupancyGridSquare_t start_square = world_map.real_to_grid(current_pose.pose.pose.position);
     OccupancyGridSquare_t goal_square = world_map.real_to_grid(final_pose.position);
@@ -131,11 +166,12 @@ bool AStarPathGenerator::run_astar(
 
         int y = current_packed_index % map_width;
         int x = current_packed_index / map_width;
+        // ROS_ERROR("Visiting (y,x) of (%d, %d)", y, x);
         int next_cost_from_start = this->grid[current_packed_index].cost_from_start + 1;
 
-        for (int yy = std::max(0, y-1); yy <= std::min(map_height-1, y+1); yy++)
+        for (int yy = std::max(0, y-1); yy <= std::min(map_width-1, y+1); yy++)
         {
-            for (int xx = std::max(0, x-1); xx <= std::min(map_width-1, x+1); xx++)
+            for (int xx = std::max(0, x-1); xx <= std::min(map_height-1, x+1); xx++)
             {
                 if ((xx == x) && (yy == y)) 
                 { 
@@ -153,10 +189,16 @@ bool AStarPathGenerator::run_astar(
 
                 next.parent_index = current_packed_index;
                 max_path_length = std::max(max_path_length, next_cost_from_start);
+                next.cost_from_start = next_cost_from_start;
                 next.sort_value = next_cost_from_start + astar_heuristic(
                     OccupancyGridSquare_t(xx, yy),
                     goal_square);
-                next.cost_from_start = next.sort_value; // TODO: is this redundant?
+
+                //ROS_ERROR("\tPoint of (y,x) = (%d, %d) has sort_value of %lf, cfs of %lf",
+                //        yy,
+                //        xx,
+                //        next.sort_value,
+                //        next.cost_from_start);
 
                 queue.emplace(next_index);
             }
@@ -249,7 +291,7 @@ bool AStarPathGenerator::is_path_valid(
 {
     if (path.poses.size() == 0)
     {
-        return true;
+        return false;
     }
 
     if (!this->is_segment_valid(

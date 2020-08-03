@@ -56,6 +56,13 @@ class AStarPathGenerator : public PathGenerator
                 const magellan_messages::MsgMagellanOccupancyGrid& grid,
                 magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
 
+        void clear_cone(
+                int x, 
+                int y, 
+                int num_blocks,
+                const magellan_messages::MsgMagellanOccupancyGrid& grid,
+                magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
+
         bool run_astar(
             const magellan_messages::MsgZedPose& current_pose,
             const geometry_msgs::Pose& final_pose,
