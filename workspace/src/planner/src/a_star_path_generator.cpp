@@ -55,8 +55,8 @@ void AStarPathGenerator::initialize_grids(
     {
         if (world_grid.matrix[i] < 0)
         {
-            int x = i % world_grid.map_metadata.width;
-            int y = i / world_grid.map_metadata.height;
+            int y = i % world_grid.map_metadata.width;
+            int x = i / world_grid.map_metadata.width;
 
             this->expand_obstacle(x, y, num_expansion_blocks, world_grid, debug_grid);
         }
@@ -72,15 +72,15 @@ void AStarPathGenerator::expand_obstacle(
 {
     int min_x = std::max(0, x - num_blocks);
     int min_y = std::max(0, y - num_blocks);
-    int max_x = std::min(static_cast<int>(grid.map_metadata.width - 1), x + num_blocks);
-    int max_y = std::min(static_cast<int>(grid.map_metadata.height - 1), y + num_blocks);
+    int max_x = std::min(static_cast<int>(grid.map_metadata.height - 1), x + num_blocks);
+    int max_y = std::min(static_cast<int>(grid.map_metadata.width - 1), y + num_blocks);
 
     for (int yy = min_y; yy <= max_y; yy++)
     {
         for (int xx = min_x; xx <= max_x; xx++)
         {
-            this->grid[(yy*grid.map_metadata.width) + xx].is_obstacle = true; 
-            debug_grid.matrix[(yy*grid.map_metadata.width) + xx] = -1;
+            this->grid[(xx*grid.map_metadata.width) + yy].is_obstacle = true; 
+            debug_grid.matrix[(xx*grid.map_metadata.width) + yy] = -1;
         }
     }
 }
@@ -99,8 +99,8 @@ bool AStarPathGenerator::run_astar(
     int map_width = static_cast<int>(grid.map_metadata.width);
     int map_height = static_cast<int>(grid.map_metadata.height);
 
-    int start_packed_index = (map_width * start_square.y) + start_square.x;
-    int goal_packed_index = (map_width * goal_square.y) + goal_square.x;
+    int start_packed_index = (map_width * start_square.x) + start_square.y;
+    int goal_packed_index = (map_width * goal_square.x) + goal_square.y;
 
     auto cmp = [&](int &p1,
                    int &p2)
@@ -129,8 +129,8 @@ bool AStarPathGenerator::run_astar(
             break;
         }
 
-        int y = current_packed_index / map_width;
-        int x = current_packed_index % map_width;
+        int y = current_packed_index % map_width;
+        int x = current_packed_index / map_width;
         int next_cost_from_start = this->grid[current_packed_index].cost_from_start + 1;
 
         for (int yy = std::max(0, y-1); yy <= std::min(map_height-1, y+1); yy++)
@@ -142,7 +142,7 @@ bool AStarPathGenerator::run_astar(
                     continue; 
                 }
 
-                int next_index = (yy * map_width) + xx;
+                int next_index = (xx * map_width) + yy;
                 AStarPoint_t &next = this->grid[next_index];
                 if (next.is_obstacle
                     ||
@@ -195,8 +195,8 @@ bool AStarPathGenerator::run_astar(
     for (size_t i = 0; i < parent_indexes.size(); i++)
     {
         int index = parent_indexes[i];
-        int next_y = index / map_width;
-        int next_x = index % map_width;
+        int next_y = index % map_width;
+        int next_x = index / map_width;
 
         previous_point = next_point;
         next_point = world_map.grid_to_real(
