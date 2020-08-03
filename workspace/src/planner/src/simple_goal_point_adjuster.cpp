@@ -22,7 +22,7 @@ bool SimpleGoalPointAdjuster::adjust_goal_point(
     OccupancyGridSquare_t estimated_square = map.real_to_grid(
         goal_point_estimate);
 
-    int packed_index = (estimated_square.y * map_width) + estimated_square.x;
+    int packed_index = (estimated_square.x * map_width) + estimated_square.y;
     visited.emplace(packed_index);
     traversal_queue.push(packed_index);
 
@@ -31,15 +31,15 @@ bool SimpleGoalPointAdjuster::adjust_goal_point(
         packed_index = traversal_queue.front();
         traversal_queue.pop();
 
-        int y = packed_index / map_width;
-        int x = packed_index % map_width;
+        int y = packed_index % map_width;
+        int x = packed_index / map_width;
 
         // Cones have value > 0
         // TODO: For now, assume 1 cone.
         if (grid.matrix[packed_index] > 0) 
         {
             goal_point_estimate = this->find_centroid(
-                grid,
+                map,
                 x,
                 y);
 
@@ -47,9 +47,9 @@ bool SimpleGoalPointAdjuster::adjust_goal_point(
         }
 
         int min_y = std::max(std::max(0, estimated_square.y-search_radius), y-1);
-        int max_y = std::min(std::min(map_height-1, estimated_square.y+search_radius), y+1);
-        int min_x = std::max(std::max(0, estimated_square.x+search_radius), x-1);
-        int max_x = std::min(std::min(map_width-1, estimated_square.x+search_radius), x+1);
+        int max_y = std::min(std::min(map_width-1, estimated_square.y+search_radius), y+1);
+        int min_x = std::max(std::max(0, estimated_square.x-search_radius), x-1);
+        int max_x = std::min(std::min(map_height-1, estimated_square.x+search_radius), x+1);
 
         for (int yy = min_y; yy <= max_y; yy++)
         {
@@ -60,7 +60,7 @@ bool SimpleGoalPointAdjuster::adjust_goal_point(
                     continue;
                 }
 
-                packed_index = (yy * map_width) + xx;
+                packed_index = (xx * map_width) + yy;
                 if (!visited.count(packed_index))
                 {
                     visited.emplace(packed_index);
@@ -74,17 +74,18 @@ bool SimpleGoalPointAdjuster::adjust_goal_point(
 }
 
 geometry_msgs::Point SimpleGoalPointAdjuster::find_centroid(
-    const magellan_messages::MsgMagellanOccupancyGrid& grid,
+    const GlobalMap& map,
     int startX,
     int startY)
 {
+    const magellan_messages::MsgMagellanOccupancyGrid grid = map.get_map();
     int map_width = static_cast<int>(grid.map_metadata.width);
     int map_height = static_cast<int>(grid.map_metadata.height);
 
     std::unordered_set<int> visited;
     std::queue<int> traversal_queue;
 
-    int packed_index = (map_width * startY) + startX;
+    int packed_index = (map_width * startX) + startY;
     traversal_queue.push(packed_index);
 
     double running_avg_x = 0;
@@ -96,20 +97,22 @@ geometry_msgs::Point SimpleGoalPointAdjuster::find_centroid(
         packed_index = traversal_queue.front();
         traversal_queue.pop();
 
-        int y = packed_index / map_width;
-        int x = packed_index % map_width;
+        int y = packed_index % map_width;
+        int x = packed_index / map_width;
 
-        running_avg_x = (running_avg_x * num_points) + static_cast<double>(x) / (num_points + 1);
-        running_avg_y = (running_avg_y * num_points) + static_cast<double>(y) / (num_points + 1);
+        running_avg_x = static_cast<double>(((running_avg_x * num_points) + (x))) / (num_points + 1.0);
+        running_avg_y = static_cast<double>(((running_avg_y * num_points) + (y))) / (num_points + 1.0);
         num_points++;
 
         constexpr int radius = 1;
-        for (int yy = std::max(0, y-radius); yy <= std::min(map_height-1, y+radius); yy++)
+        for (int yy = std::max(0, y-radius); yy <= std::min(map_width-1, y+radius); yy++)
         {
-            for (int xx = std::max(0, x-radius); xx <= std::min(map_width-1, x+radius); xx++)
+            for (int xx = std::max(0, x-radius); xx <= std::min(map_height-1, x+radius); xx++)
             {
-                packed_index = (map_width*startY) + startX;
-                if (!visited.count(packed_index)) 
+                packed_index = (map_width*xx) + yy;
+                if ((grid.matrix[packed_index] > 0)
+                        &&
+                    (!visited.count(packed_index)))
                 {
                     visited.emplace(packed_index);
                     traversal_queue.push(packed_index);
@@ -119,12 +122,10 @@ geometry_msgs::Point SimpleGoalPointAdjuster::find_centroid(
 
     }
 
-    geometry_msgs::Point p;
-    p.x = running_avg_x;
-    p.y = running_avg_y;
-    p.z = 0;
+    OccupancyGridSquare_t grid_square;
+    grid_square.x = static_cast<int>(round(running_avg_x));
+    grid_square.y = static_cast<int>(round(running_avg_y));
 
-    return p;
+    return map.grid_to_real(grid_square);
 }
-
 

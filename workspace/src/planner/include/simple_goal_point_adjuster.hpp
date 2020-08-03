@@ -19,7 +19,7 @@ class SimpleGoalPointAdjuster : public GoalPointAdjuster
         static constexpr float max_adjust_distance_m = 1.0f;
 
         geometry_msgs::Point find_centroid(
-            const magellan_messages::MsgMagellanOccupancyGrid& grid,
+            const GlobalMap& grid,
             int startW,
             int startH);
 };

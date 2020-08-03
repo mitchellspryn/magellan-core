@@ -7,7 +7,7 @@
 Planner::Planner()
 {
     this->goal_position.x = 1;
-    this->goal_position.y = 0.5;
+    this->goal_position.y = 0;
     this->goal_position.z = 0;
 
     this->reinitialize();
@@ -23,6 +23,11 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
     this->global_map->update_map(pose, obstacles);  
 
     debug_msg.global_obstacle_map = this->global_map->get_map();
+
+    this->goal_point_adjuster->adjust_goal_point(
+        *(this->global_map),
+        this->goal_position);
+        
     debug_msg.goal = this->goal_position;
 
     geometry_msgs::Pose tmp;

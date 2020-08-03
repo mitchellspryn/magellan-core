@@ -17,8 +17,9 @@ ObstacleDetector::ObstacleDetector()
     default_config.max_cone_neighbor_distance = 5.0 * in_to_m;
     default_config.max_cone_aspect_ratio = 0.75;
     default_config.min_cone_point_count = 500;
-    default_config.min_cone_hue = 95;
-    default_config.max_cone_hue = 105;
+    // TODO: do we need 2-pass for cone color?
+    default_config.min_cone_hue = 90;
+    default_config.max_cone_hue = 110;
     default_config.min_cone_ls_sum = 275;
     default_config.min_cone_luminance = 60;
     default_config.max_cone_luminance = 160;
