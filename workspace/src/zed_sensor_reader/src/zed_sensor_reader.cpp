@@ -340,34 +340,40 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
             if (capture_parameters.publish_pose)
             {
                 pose_msg.header.stamp = now;
-                g_camera.getPosition(pose, sl::REFERENCE_FRAME::CAMERA);
-
-                sl_vec3_to_ros_point(pose.getTranslation(), pose_msg.pose.pose.position);
-                sl_quat_to_ros_quat(pose.getOrientation(), pose_msg.pose.pose.orientation);
-
-                pose_msg.twist.twist.linear.x  = pose.twist[0];
-                pose_msg.twist.twist.linear.y  = pose.twist[1];
-                pose_msg.twist.twist.linear.z  = pose.twist[2];
-                pose_msg.twist.twist.angular.x = pose.twist[3];
-                pose_msg.twist.twist.angular.y = pose.twist[4];
-                pose_msg.twist.twist.angular.z = pose.twist[5];
-
-                // TODO: Should this be separate message? Or should we publish marker array?
-                // For now putting confidence in xx-yy-zz of covariance
-                // Note that pose_confidence is backwards - 100 == full confidence, 0 == no confidence
-                //pose_msg.pose.covariance[0] = 100.0 - pose.pose_confidence;
-                //pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
-                //pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
-                
-                pose_msg.confidence = pose.pose_confidence;
-                
-                for (int i = 0; i < 36; i++)
+                sl::POSITIONAL_TRACKING_STATE tracking_state = g_camera.getPosition(pose, sl::REFERENCE_FRAME::WORLD);
+                if (tracking_state != sl::POSITIONAL_TRACKING_STATE::OK) 
                 {
-                    pose_msg.pose.covariance[i] = static_cast<double>(pose.pose_covariance[i]);
-                    pose_msg.twist.covariance[i] = static_cast<double>(pose.twist_covariance[i]);
+                    ROS_ERROR("Tracking does not return success.");
                 }
-                
-                g_pose_publisher.publish(pose_msg);
+                else
+                {
+                    sl_vec3_to_ros_point(pose.getTranslation(), pose_msg.pose.pose.position);
+                    sl_quat_to_ros_quat(pose.getOrientation(), pose_msg.pose.pose.orientation);
+
+                    pose_msg.twist.twist.linear.x  = pose.twist[0];
+                    pose_msg.twist.twist.linear.y  = pose.twist[1];
+                    pose_msg.twist.twist.linear.z  = pose.twist[2];
+                    pose_msg.twist.twist.angular.x = pose.twist[3];
+                    pose_msg.twist.twist.angular.y = pose.twist[4];
+                    pose_msg.twist.twist.angular.z = pose.twist[5];
+
+                    // TODO: Should this be separate message? Or should we publish marker array?
+                    // For now putting confidence in xx-yy-zz of covariance
+                    // Note that pose_confidence is backwards - 100 == full confidence, 0 == no confidence
+                    //pose_msg.pose.covariance[0] = 100.0 - pose.pose_confidence;
+                    //pose_msg.pose.covariance[7] = 100.0 - pose.pose_confidence;
+                    //pose_msg.pose.covariance[14] = 100.0 -pose.pose_confidence;
+                    
+                    pose_msg.confidence = pose.pose_confidence;
+                    
+                    for (int i = 0; i < 36; i++)
+                    {
+                        pose_msg.pose.covariance[i] = static_cast<double>(pose.pose_covariance[i]);
+                        pose_msg.twist.covariance[i] = static_cast<double>(pose.twist_covariance[i]);
+                    }
+
+                    g_pose_publisher.publish(pose_msg);
+                }
             }
 
             frame_counter++;
@@ -472,11 +478,6 @@ sl::ERROR_CODE init_positional_tracking(const capture_parameters_t &parameters)
     position_tracking_parameters.enable_imu_fusion = true;
     position_tracking_parameters.enable_pose_smoothing = true;
     position_tracking_parameters.set_floor_as_origin = false;
-
-    sl::Transform pose_to_world_transform;
-    pose_to_world_transform.setTranslation(sl::Translation(0, 0, 0));
-    pose_to_world_transform.setRotation(sl::Rotation(g_rot_theta * deg_to_rad, sl::Translation(1, 0, 0)));
-    position_tracking_parameters.initial_world_transform = pose_to_world_transform;
 
     return g_camera.enablePositionalTracking(position_tracking_parameters);
 }

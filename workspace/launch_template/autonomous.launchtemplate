@@ -16,7 +16,7 @@
         <remap from="output_topic_detection" to="/obstacle_detection/output_topic_detection" />
     </node>
 
-    <node name="planner" pkg="planner" type="node" args="" launch-prefix="gnome-terminal -- gdb --args">
+    <node name="planner" pkg="planner" type="node" args="">
         <remap from="input_topic_kill_switch" to="/control_webpage/output_topic_kill_switch" />
         <remap from="input_topic_pose" to="/zed_sensor_reader/output_topic_pose" />
         <remap from="input_topic_occupancy_grid" to="/obstacle_detection/output_topic_detection" />
