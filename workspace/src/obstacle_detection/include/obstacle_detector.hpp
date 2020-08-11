@@ -63,6 +63,7 @@ class ObstacleDetector
         float max_cone_luminance;
         float min_occupancy_matrix_num_points;
         float occupancy_matrix_grid_square_size;
+        int min_num_points_for_speck;
 
         StereoVisionPointMetadata_t point_metadata[cloud_width * cloud_height];
 
@@ -75,6 +76,9 @@ class ObstacleDetector
         void generate_output_message(
                 const StereoVisionPoint_t *stereo_cloud,
                 magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result);
+        void remove_specks(
+                magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result,
+                int min_num_points_for_speck);
         bool is_cone_color(const StereoVisionPoint_t &stereo_point);
         inline HlsColor_t rgba_to_hls(uint32_t rgba_color);
 

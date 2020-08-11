@@ -1,4 +1,5 @@
 #include "../include/obstacle_detector.hpp"
+#include "magellan_messages/MsgMagellanOccupancyGrid.h"
 
 ObstacleDetector::ObstacleDetector()
 {
@@ -25,6 +26,7 @@ ObstacleDetector::ObstacleDetector()
     default_config.max_cone_luminance = 160;
     default_config.min_occupancy_matrix_num_points = 10;
     default_config.occupancy_matrix_grid_square_size = 3.0 * in_to_m;
+    default_config.min_num_points_for_speck = 4;
 
     this->set_internal_parameters(default_config);
 }
@@ -49,6 +51,7 @@ void ObstacleDetector::set_internal_parameters(
     this->max_cone_luminance = parameters.max_cone_luminance;
     this->min_occupancy_matrix_num_points = parameters.min_occupancy_matrix_num_points;
     this->occupancy_matrix_grid_square_size = parameters.occupancy_matrix_grid_square_size;
+    this->min_num_points_for_speck = parameters.min_num_points_for_speck;
 }
 
 bool ObstacleDetector::detect(
@@ -492,6 +495,106 @@ void ObstacleDetector::generate_output_message(
     obstacle_detection_result.map_metadata.origin.position.x = floor(min_x / this->occupancy_matrix_grid_square_size) * this->occupancy_matrix_grid_square_size;
     obstacle_detection_result.map_metadata.origin.position.y = floor(min_y / this->occupancy_matrix_grid_square_size) * this->occupancy_matrix_grid_square_size;
     obstacle_detection_result.map_metadata.origin.position.z = 0;
+
+    this->remove_specks(
+            obstacle_detection_result,
+            this->min_num_points_for_speck);
+}
+
+void ObstacleDetector::remove_specks(
+        magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result,
+        int min_num_points_for_speck)
+{
+    std::unordered_set<int> visited;
+    std::unordered_set<int> current_speck;
+    std::queue<std::pair<int, int>> queue;
+
+    int num_squares_wide = obstacle_detection_result.map_metadata.width;
+    int num_squares_tall = obstacle_detection_result.map_metadata.height;
+
+    for (int y = 0; y < num_squares_wide; y++)
+    {
+        for (int x = 0; x < num_squares_tall; x++)
+        {
+            int packed = (x*num_squares_wide) + y;
+
+            if ((obstacle_detection_result.matrix[packed] == -1)
+                    &&
+                visited.count(packed) == 0)
+            {
+                current_speck.clear();
+                queue = std::queue<std::pair<int, int>>();
+                queue.emplace(y, x);
+
+                while (!queue.empty())
+                {
+                    std::pair<int, int> coords = queue.front();
+                    int yy = coords.first;
+                    int xx = coords.second;
+                    current_speck.emplace((xx*num_squares_wide) + yy);
+                    queue.pop();
+
+                    if (yy > 0)
+                    {
+                        int packed_u = (xx*num_squares_wide) + (yy-1);
+                        if ((obstacle_detection_result.matrix[packed_u] == -1) 
+                                &&
+                             (visited.count(packed_u) == 0))
+                        {
+                            visited.emplace(packed_u);
+                            queue.emplace(yy-1, xx);
+                        }
+                    }
+
+                    if (yy < num_squares_wide - 1)
+                    {
+                        int packed_d = (xx*num_squares_wide) + (yy+1);
+                        if ((obstacle_detection_result.matrix[packed_d] == -1)
+                                &&
+                            (visited.count(packed_d) == 0))
+                        {
+                            visited.emplace(packed_d);
+                            queue.emplace(yy+1, x);
+                        }
+                    }
+
+                    if (xx > 0)
+                    {
+                        int packed_l = ((xx - 1)*(num_squares_wide)) + yy;
+                        if ((obstacle_detection_result.matrix[packed_l] == -1)
+                                &&
+                            (visited.count(packed_l) == 0))
+                        {
+                            visited.emplace(packed_l);
+                            queue.emplace(yy, xx-1);
+                        }
+                    }
+
+                    if (xx < num_squares_tall - 1)
+                    {
+                        int packed_r = ((xx + 1) * (num_squares_wide)) + yy;
+                        if ((obstacle_detection_result.matrix[packed_r] == -1)
+                                &&
+                            (visited.count(packed_r) == 0))
+                        {
+                            visited.emplace(packed_r);
+                            queue.emplace(yy, xx+1);
+                        }
+                    }
+                }
+
+            }
+
+            if (current_speck.size() < min_num_points_for_speck)
+            {
+                for (const int& packed : current_speck)
+                {
+                    obstacle_detection_result.matrix[packed] = 0;
+                }
+            }
+        }
+    }
+
 }
 
 bool ObstacleDetector::is_cone_color(const StereoVisionPoint_t &stereo_point)

@@ -16,3 +16,4 @@ float32 max_cone_aspect_ratio
 float32 min_cone_point_count
 float32 min_occupancy_matrix_num_points
 float32 occupancy_matrix_grid_square_size
+int32 min_num_points_for_speck
