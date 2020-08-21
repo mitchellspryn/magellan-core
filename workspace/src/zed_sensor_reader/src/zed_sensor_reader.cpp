@@ -343,7 +343,24 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 sl::POSITIONAL_TRACKING_STATE tracking_state = g_camera.getPosition(pose, sl::REFERENCE_FRAME::WORLD);
                 if (tracking_state != sl::POSITIONAL_TRACKING_STATE::OK) 
                 {
-                    ROS_ERROR("Tracking does not return success.");
+                    std::string state_err;
+                    switch (tracking_state)
+                    {
+                        case sl::POSITIONAL_TRACKING_STATE::SEARCHING:
+                            state_err = "SEARCHING";
+                            break;
+                        case sl::POSITIONAL_TRACKING_STATE::OFF:
+                            state_err = "OFF";
+                            break;
+                        case sl::POSITIONAL_TRACKING_STATE::FPS_TOO_LOW:
+                            state_err = "FPS_TOO_LOW";
+                            break;
+                        default:
+                            state_err = "UNKNOWN";
+                            break;
+                    }
+
+                    ROS_ERROR("Tracking does not return success (%s).", state_err.c_str());
                 }
                 else
                 {
@@ -459,6 +476,7 @@ sl::ERROR_CODE init_camera(const capture_parameters_t &parameters)
     init_parameters.depth_stabilization = true;
     init_parameters.enable_image_enhancement = true;
     init_parameters.enable_right_side_measure = false;
+    init_parameters.sdk_verbose = true;
     init_parameters.sensors_required = (parameters.publish_pose || parameters.publish_sensors);
 
     g_runtime_parameters.sensing_mode = sl::SENSING_MODE::STANDARD;
@@ -487,7 +505,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "zed_sensor_reader");
 
     capture_parameters_t capture_parameters;
-    capture_parameters.frames_per_second = 50;
+    capture_parameters.frames_per_second = 60;
     capture_parameters.publish_pose = false;
     capture_parameters.publish_sensors = false;
     capture_parameters.enable_area_memory = true;

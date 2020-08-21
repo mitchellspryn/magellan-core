@@ -386,7 +386,7 @@ void ObstacleDetector::generate_output_message(
         const StereoVisionPoint_t *stereo_cloud,
         magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result)
 {
-
+    // TODO: For some reason, the Y axis needs to be inverted.
     float min_x = std::numeric_limits<float>::max();
     float max_x = std::numeric_limits<float>::min();
     float min_y = std::numeric_limits<float>::max();
@@ -399,8 +399,8 @@ void ObstacleDetector::generate_output_message(
             const StereoVisionPoint_t &point = stereo_cloud[i];
             min_x = std::min(min_x, point.x);
             max_x = std::max(max_x, point.x);
-            min_y = std::min(min_y, point.y);
-            max_y = std::max(max_y, point.y);
+            min_y = std::min(min_y, (point.y * -1));
+            max_y = std::max(max_y, (point.y * -1));
         }
     }
 
@@ -419,7 +419,7 @@ void ObstacleDetector::generate_output_message(
         const StereoVisionPoint_t &point = stereo_cloud[i];
 
         int occ_x = (point.x - min_x) / this->occupancy_matrix_grid_square_size;
-        int occ_y = (point.y - min_y) / this->occupancy_matrix_grid_square_size;
+        int occ_y = ((point.y * -1) - min_y) / this->occupancy_matrix_grid_square_size;
         int packed = (occ_x * num_squares_wide) + occ_y;
 
         // This gives a small chance that two cones overlap in a square.

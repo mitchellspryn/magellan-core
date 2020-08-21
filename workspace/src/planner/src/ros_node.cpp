@@ -24,8 +24,8 @@
 
 #include <unordered_map>
 
-static magellan_messages::MsgMagellanOccupancyGrid g_occupancy_grid;
-static magellan_messages::MsgZedPose g_zed_pose;
+static magellan_messages::MsgMagellanOccupancyGrid g_occupancy_grid_staging;
+static magellan_messages::MsgZedPose g_zed_pose_staging;
 static bool g_occupancy_grid_initialized = false;
 static bool g_zed_pose_initialized = false;
 static bool g_killed = false;
@@ -39,7 +39,7 @@ static ros::Publisher g_debug_publisher;
 void occupancy_grid_received_callback(const magellan_messages::MsgMagellanOccupancyGrid::ConstPtr &grid)
 {
     g_planner_mutex.lock();
-    g_occupancy_grid = *grid;
+    g_occupancy_grid_staging = *grid;
     g_occupancy_grid_initialized = true;
     g_planner_mutex.unlock();
 }
@@ -47,7 +47,7 @@ void occupancy_grid_received_callback(const magellan_messages::MsgMagellanOccupa
 void pose_received_callback(const magellan_messages::MsgZedPose::ConstPtr &pose)
 {
     g_planner_mutex.lock();
-    g_zed_pose = *pose;
+    g_zed_pose_staging = *pose;
     g_zed_pose_initialized = true;
     g_planner_mutex.unlock();
 }
@@ -74,13 +74,20 @@ void planner_thread(const ros::TimerEvent &event)
         return;
     }
 
-    magellan_messages::MsgMagellanPlannerDebug debug_msg;
+    magellan_messages::MsgMagellanOccupancyGrid grid;
+    magellan_messages::MsgZedPose pose;
+
     g_planner_mutex.lock();
-    magellan_messages::MsgMagellanDrive output = g_planner.run_planner(
-        g_zed_pose,
-        g_occupancy_grid,
-        debug_msg);
+    grid = g_occupancy_grid_staging;
+    pose = g_zed_pose_staging;
     g_planner_mutex.unlock();
+
+
+    magellan_messages::MsgMagellanPlannerDebug debug_msg;
+    magellan_messages::MsgMagellanDrive output = g_planner.run_planner(
+        pose,
+        grid,
+        debug_msg);
 
     //if (g_killed)
     //{

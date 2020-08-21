@@ -49,7 +49,7 @@ def m_to_px(m, min_m, max_m, image_dim):
     return int(norm * image_dim)
 
 def draw_planner_debug_image(data):
-    image_size_px = 1200
+    image_size_px = 800
 
     num_cells_wide = data.global_obstacle_map.map_metadata.width  # y
     num_cells_tall = data.global_obstacle_map.map_metadata.height # x
@@ -138,30 +138,33 @@ def draw_planner_debug_image(data):
     cv2.arrowedLine(image, (current_foot_y, current_foot_x), (current_tip_y, current_tip_x), (0, 0, 255), 4)
 
     # Draw the current visible area
-    zed_minx = data.local_obstacle_map.map_metadata.origin.position.x
-    zed_miny = data.local_obstacle_map.map_metadata.origin.position.y
-    zed_maxx = zed_minx + (data.local_obstacle_map.map_metadata.resolution * data.local_obstacle_map.map_metadata.height)
-    zed_maxy = zed_miny + (data.local_obstacle_map.map_metadata.resolution * data.local_obstacle_map.map_metadata.width)
+    # TODO: this visualization isn't helpful.
+    #zed_minx = data.local_obstacle_map.map_metadata.origin.position.x
+    #zed_miny = data.local_obstacle_map.map_metadata.origin.position.y
+    #zed_maxx = zed_minx + (data.local_obstacle_map.map_metadata.resolution * data.local_obstacle_map.map_metadata.height)
+    #zed_maxy = zed_miny + (data.local_obstacle_map.map_metadata.resolution * data.local_obstacle_map.map_metadata.width)
 
-    cy = math.cos(yaw)
-    sy = math.sin(yaw)
+    #cy = math.cos(yaw)
+    #sy = math.sin(yaw)
 
-    g_minx = ((cy*zed_minx) - (sy*zed_miny)) + data.pose.pose.pose.position.x
-    g_miny = ((sy*zed_minx) + (cy*zed_miny)) + data.pose.pose.pose.position.y
-    g_maxx = ((cy*zed_maxx) - (sy*zed_maxy)) + data.pose.pose.pose.position.x
-    g_maxy = ((sy*zed_maxx) + (cy*zed_maxy)) + data.pose.pose.pose.position.y
+    #g_minx = ((cy*zed_minx) - (sy*zed_miny)) + data.pose.pose.pose.position.x
+    #g_miny = ((sy*zed_minx) + (cy*zed_miny)) + data.pose.pose.pose.position.y
+    #g_maxx = ((cy*zed_maxx) - (sy*zed_maxy)) + data.pose.pose.pose.position.x
+    #g_maxy = ((sy*zed_maxx) + (cy*zed_maxy)) + data.pose.pose.pose.position.y
 
-    g_minx_px = m_to_px(g_minx, origin.x, max_m_height, num_cells_tall*grid_size_px)
-    g_miny_px = m_to_px(g_miny, origin.y, max_m_width, num_cells_wide*grid_size_px)
-    g_maxx_px = m_to_px(g_maxx, origin.x, max_m_height, num_cells_tall*grid_size_px)
-    g_maxy_px = m_to_px(g_maxy, origin.y, max_m_width, num_cells_wide*grid_size_px)
+    #g_minx_px = m_to_px(g_minx, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    #g_miny_px = m_to_px(g_miny, origin.y, max_m_width, num_cells_wide*grid_size_px)
+    #g_maxx_px = m_to_px(g_maxx, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    #g_maxy_px = m_to_px(g_maxy, origin.y, max_m_width, num_cells_wide*grid_size_px)
 
-    color = (255, 0, 0)
-    thickness = 2
-    cv2.line(image, (g_miny_px, g_minx_px), (g_miny_px, g_maxx_px), color, thickness) 
-    cv2.line(image, (g_miny_px, g_maxx_px), (g_maxy_px, g_maxx_px), color, thickness) 
-    cv2.line(image, (g_maxy_px, g_maxx_px), (g_maxy_px, g_minx_px), color, thickness) 
-    cv2.line(image, (g_maxy_px, g_minx_px), (g_miny_px, g_minx_px), color, thickness) 
+    #color = (255, 0, 0)
+    #thickness = 2
+    #cv2.line(image, (g_miny_px, g_minx_px), (g_miny_px, g_maxx_px), color, thickness) 
+    #cv2.line(image, (g_miny_px, g_maxx_px), (g_maxy_px, g_maxx_px), color, thickness) 
+    #cv2.line(image, (g_maxy_px, g_maxx_px), (g_maxy_px, g_minx_px), color, thickness) 
+    #cv2.line(image, (g_maxy_px, g_minx_px), (g_miny_px, g_minx_px), color, thickness) 
+
+    image = np.fliplr(image)
 
     return image
 
