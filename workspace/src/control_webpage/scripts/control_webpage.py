@@ -65,7 +65,8 @@ def draw_planner_debug_image(data):
     
     origin = data.global_obstacle_map.map_metadata.origin.position
     resolution = data.global_obstacle_map.map_metadata.resolution
-    waypoint_size = 10
+    goal_size = 8
+    waypoint_size = 5
     image = np.zeros((grid_size_px*num_cells_tall, grid_size_px*num_cells_wide, 3), dtype=np.uint8)
 
     max_m_width = resolution*num_cells_wide
@@ -114,17 +115,17 @@ def draw_planner_debug_image(data):
     for x in range(0, num_cells_tall, 1):
         cv2.line(image, (0, x*grid_size_px), (max_width, x*grid_size_px), (0, 0, 0), 1)
 
+    # Draw the goal point
+    goal_x = m_to_px(data.goal.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
+    goal_y = m_to_px(data.goal.y, origin.y, max_m_width, num_cells_wide*grid_size_px)
+    cv2.circle(image, (goal_y, goal_x), goal_size, (255, 0, 0), -1)
+
     ## Draw the waypoints
     for waypoint in data.path.poses:
         point_x = m_to_px(waypoint.pose.position.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
         point_y = m_to_px(waypoint.pose.position.y, origin.y, max_m_width, num_cells_wide*grid_size_px)
 
         cv2.circle(image, (point_y, point_x), waypoint_size, (160, 30, 160), -1)
-
-    # Draw the goal point
-    goal_x = m_to_px(data.goal.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
-    goal_y = m_to_px(data.goal.y, origin.y, max_m_width, num_cells_wide*grid_size_px)
-    cv2.circle(image, (goal_y, goal_x), waypoint_size, (255, 0, 0), -1)
 
     # Draw the current pose
     current_tip_x = m_to_px(data.pose.pose.pose.position.x, origin.x, max_m_height, num_cells_tall*grid_size_px)

@@ -5,6 +5,8 @@
 #include "magellan_messages/MsgZedPose.h"
 #include "ros/ros.h"
 
+#include <unordered_set>
+
 AStarPathGenerator::AStarPathGenerator(float obstacle_expansion_size_m)
     : obstacle_expansion_size_m(obstacle_expansion_size_m) 
 {
@@ -148,8 +150,11 @@ bool AStarPathGenerator::run_astar(
         std::vector<int>, 
         decltype(cmp)> queue(cmp);
 
+    std::unordered_set<int> visited;
+
     queue.push(start_packed_index);
     this->grid[start_packed_index].cost_from_start = 0;
+    visited.emplace(start_packed_index);
 
     bool path_found = false;
     int max_path_length = 0;
@@ -157,6 +162,7 @@ bool AStarPathGenerator::run_astar(
     {
         int current_packed_index = queue.top();
         queue.pop();
+
 
         if (current_packed_index == goal_packed_index)
         {
@@ -166,7 +172,7 @@ bool AStarPathGenerator::run_astar(
 
         int y = current_packed_index % map_width;
         int x = current_packed_index / map_width;
-        // ROS_ERROR("Visiting (y,x) of (%d, %d)", y, x);
+        //ROS_ERROR("\tVisiting (y,x) of (%d, %d) (qs = %ld, vc = %ld)", y, x, queue.size(), visited.size());
         int next_cost_from_start = this->grid[current_packed_index].cost_from_start + 1;
 
         for (int yy = std::max(0, y-1); yy <= std::min(map_width-1, y+1); yy++)
@@ -182,7 +188,9 @@ bool AStarPathGenerator::run_astar(
                 AStarPoint_t &next = this->grid[next_index];
                 if (next.is_obstacle
                     ||
-                    (next.cost_from_start < next_cost_from_start))
+                    (next.cost_from_start < next_cost_from_start)
+                    ||
+                    (visited.count(next_index) > 0))
                 {
                     continue;
                 }
@@ -194,13 +202,14 @@ bool AStarPathGenerator::run_astar(
                     OccupancyGridSquare_t(xx, yy),
                     goal_square);
 
-                //ROS_ERROR("\tPoint of (y,x) = (%d, %d) has sort_value of %lf, cfs of %lf",
+                //ROS_ERROR("\t\tPoint of (y,x) = (%d, %d) has sort_value of %lf, cfs of %lf",
                 //        yy,
                 //        xx,
                 //        next.sort_value,
                 //        next.cost_from_start);
 
                 queue.emplace(next_index);
+                visited.emplace(next_index);
             }
         }
     }
@@ -244,6 +253,7 @@ bool AStarPathGenerator::run_astar(
         next_point = world_map.grid_to_real(
             OccupancyGridSquare_t(next_x, next_y));
 
+        //if (true)
         if (!validator->is_segment_valid(
             current_waypoint.pose.position,
             next_point,
