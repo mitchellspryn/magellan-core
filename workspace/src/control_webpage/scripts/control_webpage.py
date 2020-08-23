@@ -73,6 +73,7 @@ def draw_planner_debug_image(data):
     max_m_height = resolution*num_cells_tall
 
     # Color each cell according to global grid
+    small_im = np.zeros((num_cells_tall, num_cells_wide, 3), dtype=np.uint8)
     for x in range(0, num_cells_tall, 1):
         for y in range(0, num_cells_wide, 1):
             idx = (x * num_cells_wide) + y
@@ -88,32 +89,29 @@ def draw_planner_debug_image(data):
                     # Draw truly clear space as green.
                     # Draw expanded obstacles as white
                     if (obstacle_status == 0):
-                        color = (0, 255, 0)
+                        small_im[x, y, :] = [0, 255, 0]
                     else:
-                        color = (255, 255, 255)
+                        small_im[x, y, :] = [255, 255, 255]
                 elif (status == -1):
-                    color = (0, 0, 255)
+                    small_im[x, y, :] = [0, 0, 255]
                 elif (status == 1):
-                    color = (255, 0, 255)
+                    small_im[x, y, :] = [255, 0, 255]
                 elif (status == 2):
-                    color = (0, 255, 255)
+                    small_im[x, y, :] = [0, 255, 255]
                 elif (status == 3):
-                    color = (255, 255, 0)
+                    small_im[x, y, :] = [255, 255, 0]
                 elif (status == 4):
-                    color = (255, 128, 255)
+                    small_im[x, y, :] = [255, 128, 255]
                 else:
                     raise ValueError('Status = {0}'.format(status))
 
-                pt1 = (y*grid_size_px,x*grid_size_px)
-                pt2 = ((y+1)*grid_size_px, (x+1)*grid_size_px)
-
-                cv2.rectangle(image, pt1, pt2, color, -1)
-
+    image = cv2.resize(small_im, (grid_size_px*num_cells_tall, grid_size_px*num_cells_wide), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
+    
     # Draw the grid lines
-    for y in range(0, num_cells_wide, 1):
-        cv2.line(image, (y*grid_size_px, 0), (y*grid_size_px, max_height), (0, 0, 0), 1)
-    for x in range(0, num_cells_tall, 1):
-        cv2.line(image, (0, x*grid_size_px), (max_width, x*grid_size_px), (0, 0, 0), 1)
+    #for y in range(0, num_cells_wide, 1):
+    #    cv2.line(image, (y*grid_size_px, 0), (y*grid_size_px, max_height), (0, 0, 0), 1)
+    #for x in range(0, num_cells_tall, 1):
+    #    cv2.line(image, (0, x*grid_size_px), (max_width, x*grid_size_px), (0, 0, 0), 1)
 
     # Draw the goal point
     goal_x = m_to_px(data.goal.x, origin.x, max_m_height, num_cells_tall*grid_size_px)
@@ -187,12 +185,21 @@ def quat_to_rpy(quat):
 
     return (roll, pitch, yaw)
 
+drop_counter = 0
+downsample_rate = 3
+
 def process_planner_debug_message(data):
     global planner_debug_lock
     global planner_debug_image
     global planner_debug_data
     global last_client_request_time
     global pause_request_time
+    global drop_counter
+    global downsample_rate
+
+    drop_counter += 1
+    if (drop_counter % downsample_rate != 0):
+        return
 
     #if (datetime.datetime.utcnow() - last_client_request_time > pause_request_time):
     #    return 

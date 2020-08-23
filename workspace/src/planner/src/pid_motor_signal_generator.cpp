@@ -34,10 +34,10 @@ magellan_messages::MsgMagellanDrive PidMotorSignalGenerator::get_drive_signals(
     loc_to_next_waypoint.x /= distance_to_waypoint;
     loc_to_next_waypoint.y /= distance_to_waypoint;
 
-    double theta_error = acos( 
-            (loc_to_next_waypoint.x * rotated_to_world.x)
-            +
-            (loc_to_next_waypoint.y * rotated_to_world.y));
+    double heading_theta = atan2(rotated_to_world.y, rotated_to_world.x);
+    double loc_theta = atan2(loc_to_next_waypoint.y, loc_to_next_waypoint.x);
+
+    double theta_error = heading_theta - loc_theta;
 
     if (theta_error > 0)
     {

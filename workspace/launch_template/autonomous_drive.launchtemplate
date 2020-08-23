@@ -1,0 +1,51 @@
+<launch>
+    <node name="control_webpage" pkg="control_webpage" type="control_webpage.py" cwd="node">
+        <remap from="input_topic_planner_debug" to="/planner/output_topic_debug" />
+        <remap from="output_topic_kill_switch" to="/control_webpage/output_topic_kill_switch" />
+
+        <!-- Don't remap motor control -->
+    </node>
+
+    <node name="zed_reader" pkg="zed_sensor_reader" type="node" args="-p -f 10">
+        <remap from="output_topic_point_cloud" to="/zed_sensor_reader/output_topic_point_cloud" />
+        <remap from="output_topic_pose" to="/zed_sensor_reader/output_topic_pose" />
+    </node>
+
+    <node name="obstacle_detection" pkg="obstacle_detection" type="node" args="-f 10">
+        <remap from="input_topic_stereo_point_cloud" to="/zed_sensor_reader/output_topic_point_cloud" />
+        <remap from="output_topic_detection" to="/obstacle_detection/output_topic_detection" />
+    </node>
+
+    <node name="planner" pkg="planner" type="node" args="">
+        <remap from="input_topic_kill_switch" to="/control_webpage/output_topic_kill_switch" />
+        <remap from="input_topic_pose" to="/zed_sensor_reader/output_topic_pose" />
+        <remap from="input_topic_occupancy_grid" to="/obstacle_detection/output_topic_detection" />
+        <remap from="input_topic_destination" to="/obstacle_detection/input_topic_destination" />
+
+        <remap from="output_topic_debug" to="/planner/output_topic_debug" />
+        <remap from="output_topic_motor_control_signals" to="/planner/output_topic_motor_control_signals" />
+    </node>
+
+    <node name="right_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n {right_motor_device_node} -b 38400 -m 0 -a 1 -o">
+        <remap from="input_topic" to="/roboclaw_motor_hardware/output_right_topic" />
+        <remap from="output_topic" to="/right_roboclaw_motor_controller_serial_port/output_topic" />
+    </node>
+
+    <node name="left_roboclaw_motor_controller_serial_port" pkg="magellan_serial_port" type="node" args="-n {left_motor_device_node} -b 38400 -m 0 -a 1 -o">
+        <remap from="input_topic" to="/roboclaw_motor_hardware/output_left_topic" />
+        <remap from="output_topic" to="/left_roboclaw_motor_controller_serial_port/output_topic" />
+    </node>
+
+    <node name="motor_ramp_node" pkg="motor_ramp" type="node" args="-m 80">
+        <remap from="input_topic" to="/drive_file_node/output_topic" />
+        <remap from="output_topic" to="/motor_ramp/output_topic" />
+    </node>
+
+    <node name="roboclaw_motor_hardware" pkg="magellan_drive_hardware" type="node">
+        <remap from="output_left_topic" to="/roboclaw_motor_hardware/output_left_topic" />
+        <remap from="input_left_serial_topic" to="/left_roboclaw_motor_controller_serial_port/output_topic" />
+        <remap from="output_right_topic" to="/roboclaw_motor_hardware/output_right_topic" />
+        <remap from="input_right_serial_topic" to="/right_roboclaw_motor_controller_serial_port/output_topic" />
+        <remap from="input_command_topic" to="/planner/output_topic_motor_control_signals" />
+    </node>
+</launch>
