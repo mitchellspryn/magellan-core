@@ -196,7 +196,7 @@ void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_na
     }
 
     output_file << "VERSION .7\n";
-    output_file << "FIELDS rgb confidence x y z nx ny nz\n";
+    output_file << "FIELDS rgb confidence x y z normal_x normal_y normal_z\n";
     output_file << "SIZE 4 4 4 4 4 4 4 4\n";
     output_file << "TYPE U F F F F F F F\n";
     output_file << "COUNT 1 1 1 1 1 1 1 1\n";

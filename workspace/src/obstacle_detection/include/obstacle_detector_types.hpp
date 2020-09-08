@@ -19,21 +19,21 @@ typedef enum TraversabilityClassification
 
 typedef struct StereoVisionPoint
 {
-    float x;
-    float y;
-    float z;
-    float nx;
-    float ny;
-    float nz;
-    float confidence;
-    uint32_t rgba_color;
+    float x = 0;
+    float y = 0;
+    float z = 0;
+    float nx = 0;
+    float ny = 0;
+    float nz = 0;
+    float confidence = 0;
+    uint32_t rgba_color = 0;
 } StereoVisionPoint_t;
 
 typedef struct StereoVisionPointMetadata
 {
-    TraversabilityClassification_t traversability;
-    int32_t cone_id;
-    bool is_valid;
+    TraversabilityClassification_t traversability = SAFE;
+    int32_t cone_id = -1;
+    bool is_valid = false;
 } StereoVisionPointMetadata_t;
 
 typedef struct PointAggregatorType

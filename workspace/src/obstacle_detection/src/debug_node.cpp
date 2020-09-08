@@ -172,7 +172,7 @@ void write_pcd(const sensor_msgs::PointCloud2 &cloud, const std::string &file_na
     }
 
     output_file << "VERSION .7\n";
-    output_file << "FIELDS rgb confidence x y z nx ny nz\n";
+    output_file << "FIELDS rgb confidence x y z normal_x normal_y normal_z\n";
     output_file << "SIZE 4 4 4 4 4 4 4 4\n";
     output_file << "TYPE U F F F F F F F\n";
     output_file << "COUNT 1 1 1 1 1 1 1 1\n";
@@ -227,7 +227,7 @@ cv::Mat visualize_occupancy_matrix(const magellan_messages::MsgMagellanOccupancy
     int width_block_size = (max_image_dim_px - (max_image_dim_px % detection.map_metadata.width)) / detection.map_metadata.width;
     int height_block_size = (max_image_dim_px - (max_image_dim_px % detection.map_metadata.height)) / detection.map_metadata.height;
 
-    int block_size = std::min(width_block_size, height_block_size);
+    int block_size = std::max(std::min(width_block_size, height_block_size), 4);
 
     cv::Mat output(detection.map_metadata.height * block_size,
                     detection.map_metadata.width * block_size,
@@ -327,7 +327,7 @@ int main(int argc, char** argv)
     std::chrono::high_resolution_clock clk;
     std::chrono::high_resolution_clock::time_point start_time;
     std::chrono::high_resolution_clock::time_point end_time;
-    for (int i = 0; i < 1; i++)
+    for (int i = 0; i < 20; i++)
     {
         start_time = clk.now();
         detection_successful = detector.detect(input_cloud, dummy_cloud, detection_result);

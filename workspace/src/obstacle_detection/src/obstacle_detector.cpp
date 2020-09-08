@@ -1,5 +1,10 @@
 #include "../include/obstacle_detector.hpp"
-#include "magellan_messages/MsgMagellanOccupancyGrid.h"
+#include "sensor_msgs/PointCloud2.h"
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/gpu/containers/device_array.h>
+#include <pcl/impl/point_types.hpp>
+#include <pcl/octree/octree_search.h>
+#include <chrono>
 
 ObstacleDetector::ObstacleDetector()
 {
@@ -11,24 +16,31 @@ ObstacleDetector::ObstacleDetector()
     default_config.point_min_confidence = 50;
     default_config.point_max_distance = 20;
     default_config.normals_traversable_thresh = 10 * deg_to_rad;
-    default_config.normals_untraversable_thresh = 30 * deg_to_rad;
-    default_config.floodfill_square_start_size = 50;
+    default_config.normals_untraversable_thresh = 50 * deg_to_rad;
+    default_config.floodfill_square_start_size = 0.5;
     default_config.max_floodfill_neighbor_distance = 4.0 * in_to_m; 
     default_config.max_floodfill_neighbor_angle = 10 * deg_to_rad;
     default_config.max_cone_neighbor_distance = 5.0 * in_to_m;
     default_config.max_cone_aspect_ratio = 0.75;
-    default_config.min_cone_point_count = 500;
+    default_config.min_cone_point_count = 8;
     // TODO: do we need 2-pass for cone color?
     default_config.min_cone_hue = 90;
     default_config.max_cone_hue = 110;
     default_config.min_cone_ls_sum = 275;
     default_config.min_cone_luminance = 60;
     default_config.max_cone_luminance = 160;
-    default_config.min_occupancy_matrix_num_points = 10;
-    default_config.occupancy_matrix_grid_square_size = 3.0 * in_to_m;
+    default_config.min_occupancy_matrix_num_points = 1;
+    default_config.occupancy_matrix_grid_square_size = 3 * in_to_m;
     default_config.min_num_points_for_speck = 4;
+    default_config.downsample_leaf_size = 3 * in_to_m;
+    default_config.normal_recompute_search_radius = 0.1f;
+    default_config.normal_recompute_max_samples = 100;
 
     this->set_internal_parameters(default_config);
+
+    this->tmp_upsample_cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>());
+    this->tmp_upsample_cloud->reserve(this->tmp_upsample_cloud->width*this->tmp_upsample_cloud->height);
+    this->downsampled_cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>());
 }
 
 void ObstacleDetector::set_internal_parameters(
@@ -52,6 +64,9 @@ void ObstacleDetector::set_internal_parameters(
     this->min_occupancy_matrix_num_points = parameters.min_occupancy_matrix_num_points;
     this->occupancy_matrix_grid_square_size = parameters.occupancy_matrix_grid_square_size;
     this->min_num_points_for_speck = parameters.min_num_points_for_speck;
+    this->downsample_leaf_size = parameters.downsample_leaf_size;
+    this->normal_recompute_search_radius = parameters.normal_recompute_search_radius;
+    this->normal_recompute_max_samples = parameters.normal_recompute_max_samples;
 }
 
 bool ObstacleDetector::detect(
@@ -71,283 +86,310 @@ bool ObstacleDetector::detect(
     // TODO: living life on the edge :P
     const StereoVisionPoint_t* stereo_cloud = reinterpret_cast<const StereoVisionPoint_t*>(stereo_camera_point_cloud.data.data());
 
-    this->fill_stereo_metadata(stereo_cloud);
-    this->floodfill_traversable_area(stereo_cloud);
-    this->floodfill_cones(stereo_cloud);
-    this->generate_output_message(stereo_cloud, obstacle_detection_result);
+    this->voxel_downsample(stereo_cloud);
+    this->recompute_normals();
+    this->build_octree();
+    this->floodfill_traversable_area();
+    this->floodfill_cones();
+    this->generate_output_message(obstacle_detection_result);
     return true;
 }
 
-sensor_msgs::PointCloud2 ObstacleDetector::debug_annotate (
+sensor_msgs::PointCloud2 ObstacleDetector::debug_annotate(
         const sensor_msgs::PointCloud2 &stereo_camera_point_cloud)
 {
     sensor_msgs::PointCloud2 output_cloud(stereo_camera_point_cloud);
+    output_cloud.data.resize(this->downsampled_cloud->size());
+    output_cloud.width = this->downsampled_cloud->size();
+    output_cloud.height = 1;
 
     StereoVisionPoint_t* ptr = reinterpret_cast<StereoVisionPoint_t*>(output_cloud.data.data());
 
-    for (int i = 0; i < this->num_points; i++)
+    for (int i = 0; i < this->downsampled_cloud->size(); i++)
     {
-        if (!this->point_metadata[i].is_valid)
+        pcl::PointXYZRGBNormal p = (*this->downsampled_cloud)[i];
+        ptr[i].x = p.x;
+        ptr[i].y = p.y;
+        ptr[i].z = p.z;
+        ptr[i].nx = p.normal_x;
+        ptr[i].ny = p.normal_y;
+        ptr[i].nz = p.normal_z;
+        ptr[i].confidence = 100;
+        
+        // If it's a cone, color by cone id
+        bool is_cone_point = false;
+        for (size_t ci = 0; ci < this->cone_indexes.size(); ci++)
         {
-            ptr->rgba_color = 0x00000000;
-        }
-        else
-        {
-            // If it's a cone, color by cone id
-            int cone_id = this->point_metadata[i].cone_id;
-            TraversabilityClassification_t traversability = this->point_metadata[i].traversability;
-
-            switch (cone_id)
+            if (cone_indexes[ci].count(i) > 0)
             {
-                case -1:
-                    switch (traversability)
-                    {
-                        case UNSAFE:
-                            ptr->rgba_color = 0xFFFF0000;
-                            break;
-                        case SAFE:
-                            ptr->rgba_color = 0xFF00FF00;
-                            break;
-                        case UNSET:
-                            throw std::runtime_error("Should not be unset here.");
-                        default:
-                            throw std::runtime_error("Unexpected traversability type.");
-                    }
-                    break;
-                case 0:
-                    throw std::runtime_error("Should not have cone_id of 0 here.");
-                case 1:
-                    ptr->rgba_color = 0xFFFF00FF;
-                    break;
-                case 2:
-                    ptr->rgba_color = 0xFFFFFF00;
-                    break;
-                case 3:
-                    ptr->rgba_color = 0xFF00A5FF;
-                    break;
-                case 4:
-                    ptr->rgba_color = 0xFF00FFFF;
-                    break;
-                default:
-                    throw std::runtime_error("Unexpected cone_id value: " + std::to_string(cone_id) + ".");
+                switch (ci)
+                {
+                    case 0:
+                        ptr[i].rgba_color = 0xFFFF00FF;
+                        break;
+                    case 1:
+                        ptr[i].rgba_color = 0xFFFFFF00;
+                        break;
+                    case 2:
+                        ptr[i].rgba_color = 0xFF00A5FF;
+                        break;
+                    case 3:
+                        ptr[i].rgba_color = 0xFF00FFFF;
+                        break;
+                    default:
+                        throw std::runtime_error("Unexpected cone_id value: " + std::to_string(ci) + ".");
+                }
+
+                is_cone_point = true;
+                break;
             }
         }
 
-        ptr++;
+        if (!is_cone_point)
+        {
+            if (traversable_indexes.count(i) > 0)
+            {
+                ptr[i].rgba_color = 0xFF00FF00;
+            }
+            else
+            {
+                ptr[i].rgba_color = 0xFFFF0000;
+            }
+        }
     }
 
     return output_cloud;
 }
 
-void ObstacleDetector::fill_stereo_metadata(const StereoVisionPoint_t* stereo_cloud)
+void ObstacleDetector::voxel_downsample(const StereoVisionPoint_t *cloud)
 {
-    for (int i = 0; i < this->num_points; i++)
+    // downsample, retaining only valid points
+    this->tmp_upsample_cloud->clear();
+
+    for (size_t i = 0; i < this->num_points; i++) 
     {
-        StereoVisionPointMetadata_t &metadata = this->point_metadata[i];
-        const StereoVisionPoint_t &point = stereo_cloud[i];
-
-        if (!std::isfinite(point.x)
-                || point.confidence < this->point_min_confidence)
+        StereoVisionPoint_t point = cloud[i];
+        if (point.confidence > this->point_min_confidence
+                && (this->l2(point.x, point.y, point.z) < 100))
         {
-            metadata.is_valid = false;
-        }
-        else
-        {
-            metadata.is_valid = true;
+            (*this->tmp_upsample_cloud).emplace_back(
+                point.x,
+                point.y,
+                point.z,
+                static_cast<uint8_t>(((point.rgba_color & 0x00FF0000) >> 16)),
+                static_cast<uint8_t>(((point.rgba_color & 0x0000FF00) >> 8)),
+                static_cast<uint8_t>(((point.rgba_color & 0x000000FF))),
 
-            if (point.nz <= this->cos_normals_untraversable_thresh)
-            {
-                metadata.traversability = UNSAFE;
-            }
-            else
-            {
-                metadata.traversability = UNSET;
-            }
-
-            if (metadata.traversability == UNSAFE
-                    && is_cone_color(point))
-            {
-                metadata.cone_id = 0;
-            }
-            else
-            {
-                metadata.cone_id = -1;
-            }
+                // Normals will be filled in later.
+                0,
+                0,
+                0);
         }
+    }
+
+    pcl::VoxelGrid<pcl::PointXYZRGBNormal> filter;
+    filter.setInputCloud(this->tmp_upsample_cloud);
+    filter.setLeafSize(
+        this->downsample_leaf_size,
+        this->downsample_leaf_size,
+        this->downsample_leaf_size);
+    //filter.setMinimumPointsNumberPerVoxel(8);
+    //filter.setFilterLimits(-10, 10);
+    filter.filter(*(this->downsampled_cloud));
+}
+
+void ObstacleDetector::recompute_normals()
+{
+    if (this->downsampled_cloud->size() > this->gpu_buf.size())
+    {
+        this->gpu_buf.resize(this->downsampled_cloud->size());
+    }
+
+    for (size_t i = 0; i < this->downsampled_cloud->size(); i++)
+    {
+        pcl::PointXYZRGBNormal p = (*this->downsampled_cloud)[i];
+        this->gpu_buf[i].x = p.x;
+        this->gpu_buf[i].y = p.y;
+        this->gpu_buf[i].z = p.z;
+    }
+
+    pcl::gpu::DeviceArray<pcl::PointXYZ> downsampled_cloud_gpu;
+    downsampled_cloud_gpu.upload(this->gpu_buf.data(), this->downsampled_cloud->size());
+
+    pcl::gpu::Feature::Normals normals;
+    pcl::gpu::NormalEstimation normalEstimator;
+
+    normalEstimator.setInputCloud(downsampled_cloud_gpu);
+    normalEstimator.setRadiusSearch(
+        this->normal_recompute_search_radius,
+        this->normal_recompute_max_samples);
+
+    normalEstimator.setViewPoint(
+        0,
+        0,
+        0.5334f); // height of the bot
+
+    normalEstimator.compute(normals);
+    normals.download(this->gpu_buf.data());
+
+    for (size_t i = 0; i < this->gpu_buf.size(); i++)
+    {
+        pcl::PointXYZ p = this->gpu_buf[i];
+        
+        (*downsampled_cloud)[i].normal_x = p.data[0];
+        (*downsampled_cloud)[i].normal_y = p.data[1];
+        (*downsampled_cloud)[i].normal_z = p.data[2];
     }
 }
 
-void ObstacleDetector::floodfill_traversable_area(const StereoVisionPoint_t *stereo_cloud)
+void ObstacleDetector::build_octree()
+{  
+    //float resolution = this->downsample_leaf_size;
+    float resolution = 1.0f;
+
+    this->search_tree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(resolution));
+
+    this->search_tree->setInputCloud(this->downsampled_cloud);
+    this->search_tree->addPointsFromInputCloud();
+}
+
+void ObstacleDetector::floodfill_traversable_area()
 {
-    std::queue<int> queue;
+    std::queue<int> points_to_visit;
 
-    // Start in the bottom center of the image
-    int start_min_y = this->cloud_height - this->floodfill_square_start_size;
-    int start_max_y = this->cloud_height;
-    int start_min_x = (this->cloud_width / 2) - this->floodfill_square_start_size;
-    int start_max_x = (this->cloud_width / 2) + this->floodfill_square_start_size;
+    this->traversable_indexes.clear();
 
-    for (int y = start_min_y; y < start_max_y; y++)
+    std::vector<int> points_found;
+    std::vector<float> points_sq_distances;
+
+    // Start near the base of the bot
+    pcl::PointXYZRGBNormal start_point(0, 0, -0.5334f, 0, 0, 0, 0, 0, 0);
+    this->search_tree->radiusSearch(
+            start_point, 
+            this->floodfill_square_start_size, 
+            points_found,
+            points_sq_distances);
+
+    for (size_t i = 0; i < points_found.size(); i++)
     {
-        for (int x = start_min_x; x < start_max_x; x++)
+        int idx = points_found[i];
+        pcl::PointXYZRGBNormal p = (*this->downsampled_cloud)[idx];
+        
+        if (p.normal_z >= this->cos_normals_traversable_thresh)
         {
-            int packed = (y*this->cloud_width) + x;
-            if (this->point_metadata[packed].is_valid 
-                    && stereo_cloud[packed].nz <= cos_normals_traversable_thresh)
-            {
-                this->point_metadata[packed].traversability = SAFE;
-                queue.emplace(packed);
-            }
+            points_to_visit.emplace(idx);
         }
     }
 
     // Examine neighbors
-    while (!queue.empty())
+    while (!points_to_visit.empty())
     {
-        int good_point_packed = queue.front();
-        queue.pop();
+        size_t sz = points_to_visit.size();
+        int next_visit_idx = points_to_visit.front();
+        points_to_visit.pop();
 
-        int y = good_point_packed / this->cloud_width;
-        int x = good_point_packed % this->cloud_width;
         // TODO: figure out how to tune this paramter
         // Higher = longer runtime, but less chance of getting "walled in"
-        int radius = 3;
-        const StereoVisionPoint_t good_point = stereo_cloud[good_point_packed];
-        
-        for (int dy = -radius; dy <= radius; dy++)
+        float radius = 2.5 * this->downsample_leaf_size;
+        pcl::PointXYZRGBNormal good_point = (*this->downsampled_cloud)[next_visit_idx];
+
+        points_found.clear();
+        points_sq_distances.clear();
+
+        this->search_tree->radiusSearch(
+            good_point, 
+            radius, 
+            points_found,
+            points_sq_distances);
+
+        for (size_t i = 0; i < points_found.size(); i++)
         {
-            for (int dx = -radius; dx <= radius; dx++)
+            int test_idx = points_found[i];
+
+            if (traversable_indexes.count(test_idx) == 0)
             {
-                if (dy == 0 && dx == 0)
-                {
-                    continue;
-                }
+                pcl::PointXYZRGBNormal new_point = (*this->downsampled_cloud)[test_idx];
 
-                // Check that point is inside cloud
-                int ny = y + dy;
-                int nx = x + dx;
-                int packed = (ny*this->cloud_width) + nx;
-                if (ny < 0 || ny >= this->cloud_height || nx < 0 || nx >= this->cloud_width)
+                if (new_point.normal_z > this->cos_normals_untraversable_thresh)
                 {
-                    continue;
-                }
+                    // Check that the normals aren't too far apart.
+                    float norm_dot = 
+                        (new_point.normal_x * good_point.normal_x) 
+                      + (new_point.normal_y * good_point.normal_y) 
+                      + (new_point.normal_z * good_point.normal_z);
 
-                // Check that we have data for the point and have not already examined it.
-                const StereoVisionPoint_t new_point = stereo_cloud[packed];
-                if (!this->point_metadata[packed].is_valid
-                        || this->point_metadata[packed].traversability != UNSET)
-                {
-                    continue;
+                    if (norm_dot >= this->min_floodfill_norm_dot)
+                    {
+                        traversable_indexes.emplace(test_idx);
+                        points_to_visit.emplace(test_idx);
+                    }
                 }
-
-                // Check that the two points are not too far apart.
-                // This would indicate a ledge.
-                float distance_sq = ((new_point.x-good_point.x)*(new_point.x-good_point.x)) +
-                                    ((new_point.y-good_point.y)*(new_point.y-good_point.y)) +
-                                    ((new_point.z-good_point.z)*(new_point.z-good_point.z));
-               
-                if (distance_sq > this->max_floodfill_neighbor_distance_sq)
-                {
-                    continue;
-                }
-
-                //// Check that the normals aren't too far apart.
-                float norm_dot = (new_point.nx*good_point.nx) + (new_point.ny*good_point.ny) + (new_point.nz*good_point.nz);
-                if (norm_dot < this->min_floodfill_norm_dot)
-                {
-                    continue;
-                }
-
-                // We have a good point. Set its status as "good" and add it to the queue.
-                this->point_metadata[packed].traversability = SAFE;
-                queue.emplace(packed);
             }
-        }
-    }
-
-    // Any points at this point are unreachable from a good sector.
-    // Mark them as unsafe.
-    for (int i = 0; i < this->num_points; i++)
-    {
-        if (this->point_metadata[i].traversability == UNSET)
-        {
-            this->point_metadata[i].traversability = UNSAFE;
         }
     }
 }
 
-void ObstacleDetector::floodfill_cones(const StereoVisionPoint_t *stereo_cloud)
+void ObstacleDetector::floodfill_cones()
 {
-    uint32_t cone_id_counter = 1;
-    for (int i = 0; i < this->num_points; i++)
+    this->cone_indexes.clear();
+
+    std::unordered_set<int> visited_points;
+    std::vector<int> points_found;
+    std::vector<float> points_sq_distances;
+
+    float search_radius = 2.5f * this->downsample_leaf_size;
+
+    for (int i = 0; i < this->downsampled_cloud->size(); i++)
     {
-        if (this->point_metadata[i].cone_id == 0)
+        pcl::PointXYZRGBNormal p = (*this->downsampled_cloud)[i];
+        if ((p.normal_z <= this->cos_normals_untraversable_thresh)
+             && (this->is_cone_color(p)))
         {
             std::unordered_set<int> cone_points;
-            int minX = i % this->cloud_width;
-            int maxX = minX;
-            int minY = i / this->cloud_height; 
-            int maxY = minY;
+            float minX = p.x;
+            float maxX = minX;
+            float minY = p.y;
+            float maxY = minY;
 
             std::queue<int> points_to_visit;
             points_to_visit.emplace(i);
             cone_points.insert(i);
+            visited_points.emplace(i);
 
             while (!points_to_visit.empty())
             {
-                int packed = points_to_visit.front();
+                int good_idx = points_to_visit.front();
                 points_to_visit.pop();
 
-                int y = packed / this->cloud_width;
-                int x = packed % this->cloud_width;
-                const StereoVisionPoint_t &this_point = stereo_cloud[packed];
+                pcl::PointXYZRGBNormal good_point = (*this->downsampled_cloud)[good_idx];
 
-                minX = std::min(minX, x);
-                maxX = std::max(maxX, x);
-                minY = std::min(minY, y);
-                maxY = std::max(maxY, y);
+                minX = std::min(minX, good_point.x);
+                maxX = std::max(maxX, good_point.x);
+                minY = std::min(minY, good_point.y);
+                maxY = std::max(maxY, good_point.y);
 
-                for (int dy = -1; dy <= 1; dy++)
+                this->search_tree->radiusSearch(
+                    good_point, 
+                    search_radius, 
+                    points_found,
+                    points_sq_distances);
+
+                for (size_t i = 0; i < points_found.size(); i++)
                 {
-                    for (int dx = -1; dx <= 1; dx++)
+                    int next_idx = points_found[i];
+                    if (visited_points.count(next_idx) == 0)
                     {
-                        if (dy == 0 && dx == 0)
+                        visited_points.emplace(next_idx);
+
+                        pcl::PointXYZRGBNormal next_point = 
+                            (*this->downsampled_cloud)[next_idx];
+
+                        if ((next_point.normal_z <= this->cos_normals_untraversable_thresh)
+                                && (this->is_cone_color(next_point)))
                         {
-                            continue;
-                        }
-
-                        int ny = y + dy;
-                        int nx = x + dx;
-
-                        if ((nx < 0 )
-                                || (nx >= this->cloud_width)
-                                || (ny < 0) 
-                                || (ny >= this->cloud_height))
-                        {
-                            continue;
-                        }
-
-                        int new_packed = idx(ny, nx);
-
-                        if (!this->point_metadata[new_packed].is_valid)
-                        {
-                            continue;
-                        }
-
-                        const StereoVisionPoint_t &new_point = stereo_cloud[idx(ny, nx)];
-
-                        float distance_sq = ((new_point.x - this_point.x)) +
-                                            ((new_point.y - this_point.y)) +
-                                            ((new_point.z - this_point.z));
-
-                        bool visited = (cone_points.count(new_packed) != 0);
-
-                        if (this->point_metadata[new_packed].cone_id == 0
-                                && !visited
-                                && distance_sq < this->max_cone_neighbor_distance_sq)
-                        {
-                            points_to_visit.emplace(new_packed);
-                            cone_points.insert(new_packed);
+                            cone_points.insert(next_idx);
+                            points_to_visit.emplace(next_idx);
                         }
                     }
                 }
@@ -362,28 +404,15 @@ void ObstacleDetector::floodfill_cones(const StereoVisionPoint_t *stereo_cloud)
                 (aspect_ratio <= this->max_cone_aspect_ratio) 
                 && (cone_points.size() >= this->min_cone_point_count);
 
-            for (int packed : cone_points)
-            {
-                if (is_valid_cone_blob)
-                {
-                    this->point_metadata[packed].cone_id = cone_id_counter;
-                }
-                else
-                {
-                    this->point_metadata[packed].cone_id = -1;
-                }
-            }
-            
             if (is_valid_cone_blob)
             {
-                cone_id_counter++;
+                this->cone_indexes.emplace_back(cone_points); 
             }
         }
     }
 }
 
 void ObstacleDetector::generate_output_message(
-        const StereoVisionPoint_t *stereo_cloud,
         magellan_messages::MsgMagellanOccupancyGrid &obstacle_detection_result)
 {
     // TODO: For some reason, the Y axis needs to be inverted.
@@ -392,31 +421,22 @@ void ObstacleDetector::generate_output_message(
     float min_y = std::numeric_limits<float>::max();
     float max_y = std::numeric_limits<float>::min();
 
-    for (int i = 0; i < this->num_points; i++)
+    for (int i = 0; i < this->downsampled_cloud->size(); i++)
     {
-        if (this->point_metadata[i].is_valid)
-        {
-            const StereoVisionPoint_t &point = stereo_cloud[i];
-            min_x = std::min(min_x, point.x);
-            max_x = std::max(max_x, point.x);
-            min_y = std::min(min_y, (point.y * -1));
-            max_y = std::max(max_y, (point.y * -1));
-        }
+        const pcl::PointXYZRGBNormal p = (*this->downsampled_cloud)[i];
+        min_x = std::min(min_x, p.x);
+        max_x = std::max(max_x, p.x);
+        min_y = std::min(min_y, (p.y * -1));
+        max_y = std::max(max_y, (p.y * -1));
     }
 
     int num_squares_wide = static_cast<int>(ceil((max_y - min_y) / this->occupancy_matrix_grid_square_size));
     int num_squares_tall = static_cast<int>(ceil((max_x - min_x) / this->occupancy_matrix_grid_square_size));
 
     std::vector<PointAggregatorType_t> counters(num_squares_wide*num_squares_tall);
-    for (int i = 0; i < this->num_points; i++)
+    for (int i = 0; i < this->downsampled_cloud->size(); i++)
     {
-        const StereoVisionPointMetadata_t &point_metadata = this->point_metadata[i];
-        if (!point_metadata.is_valid)
-        {
-            continue;
-        }
-
-        const StereoVisionPoint_t &point = stereo_cloud[i];
+        const pcl::PointXYZRGBNormal point = (*this->downsampled_cloud)[i];
 
         int occ_x = (point.x - min_x) / this->occupancy_matrix_grid_square_size;
         int occ_y = ((point.y * -1) - min_y) / this->occupancy_matrix_grid_square_size;
@@ -424,18 +444,30 @@ void ObstacleDetector::generate_output_message(
 
         // This gives a small chance that two cones overlap in a square.
         // Even if this does happen in practice, it should be rare.
-        if (point_metadata.cone_id > 0)
+
+        bool is_cone_point = false;
+        for (size_t ci = 0; ci < this->cone_indexes.size(); ci++)
         {
-            counters[packed].cone_count++;
-            counters[packed].cone_id = point_metadata.cone_id;
+            if (this->cone_indexes[ci].count(i) > 0)
+            {
+                counters[packed].cone_count++;
+                counters[packed].cone_id = ci + 1;
+                is_cone_point = true;
+                break;
+            }
         }
-        else if (point_metadata.traversability == SAFE)
+
+        
+        if (!is_cone_point)
         {
-            counters[packed].safe_count++;
-        }
-        else if (point_metadata.traversability == UNSAFE)
-        {
-            counters[packed].unsafe_count++;
+            if (this->traversable_indexes.count(i) > 0)
+            {
+                counters[packed].safe_count++;
+            }
+            else
+            {
+                counters[packed].unsafe_count++;
+            }
         }
     }
 
@@ -582,7 +614,6 @@ void ObstacleDetector::remove_specks(
                         }
                     }
                 }
-
             }
 
             if (current_speck.size() < min_num_points_for_speck)
@@ -597,9 +628,9 @@ void ObstacleDetector::remove_specks(
 
 }
 
-bool ObstacleDetector::is_cone_color(const StereoVisionPoint_t &stereo_point)
+bool ObstacleDetector::is_cone_color(const pcl::PointXYZRGBNormal& point)
 {
-    HlsColor_t hls_color = this->rgba_to_hls(stereo_point.rgba_color);
+    HlsColor_t hls_color = this->rgba_to_hls(point.rgba);
 
     return ((hls_color.h > this->min_cone_hue)
             && (hls_color.h < this->max_cone_hue)
