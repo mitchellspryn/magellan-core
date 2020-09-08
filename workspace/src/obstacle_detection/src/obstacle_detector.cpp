@@ -1,10 +1,4 @@
 #include "../include/obstacle_detector.hpp"
-#include "sensor_msgs/PointCloud2.h"
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/gpu/containers/device_array.h>
-#include <pcl/impl/point_types.hpp>
-#include <pcl/octree/octree_search.h>
-#include <chrono>
 
 ObstacleDetector::ObstacleDetector()
 {
