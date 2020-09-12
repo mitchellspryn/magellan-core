@@ -82,7 +82,7 @@ bool ObstacleDetector::detect(
 
     this->voxel_downsample(stereo_cloud);
     this->recompute_normals();
-    this->build_octree();
+    this->build_search_tree();
     this->floodfill_traversable_area();
     this->floodfill_cones();
     this->generate_output_message(obstacle_detection_result);
@@ -236,16 +236,17 @@ void ObstacleDetector::recompute_normals()
     }
 }
 
-void ObstacleDetector::build_octree()
+void ObstacleDetector::build_search_tree()
 {  
-    //float resolution = this->downsample_leaf_size;
     float resolution = 1.0f;
 
-    this->search_tree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>::Ptr(
-            new pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(resolution));
-
+    this->search_tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
+              new pcl::search::KdTree<pcl::PointXYZRGBNormal>(resolution));
+    
+    //this->search_tree = pcl::KdTreeFLANN<pcl::PointXYZRGBNormal>::Ptr(
+    //            new pcl::KdTreeFLANN<pcl::PointXYZRGBNormal>(resolution));
+    
     this->search_tree->setInputCloud(this->downsampled_cloud);
-    this->search_tree->addPointsFromInputCloud();
 }
 
 void ObstacleDetector::floodfill_traversable_area()

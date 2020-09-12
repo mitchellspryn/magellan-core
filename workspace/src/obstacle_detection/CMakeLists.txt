@@ -17,7 +17,7 @@ find_package(PCL 1.8 REQUIRED COMPONENTS common io filters features gpu_containe
 find_package(Boost COMPONENTS system filesystem REQUIRED)
 find_package(Eigen REQUIRED)
 
-SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
+SET(CMAKE_BUILD_TYPE "Release")
 
 catkin_package(
     CATKIN_DEPENDS roscpp image_transport cv_bridge message_generation sensor_msgs magellan_messages geometry_msgs

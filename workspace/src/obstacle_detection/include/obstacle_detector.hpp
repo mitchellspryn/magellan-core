@@ -7,6 +7,8 @@
 #include <fstream>
 #include <limits>
 #include <math.h>
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/kdtree/kdtree_flann.h>
 #include <queue>
 #include <ros/ros.h>
 #include <sstream>
@@ -85,7 +87,8 @@ class ObstacleDetector
 
         pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr tmp_upsample_cloud;
         pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr downsampled_cloud;
-        pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>::Ptr search_tree;
+        pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr search_tree;
+        //pcl::KdTreeFLANN<pcl::PointXYZRGBNormal>::Ptr search_tree;
         std::unordered_set<int> traversable_indexes;
         std::vector<std::unordered_set<int>> cone_indexes;
         std::vector<pcl::PointXYZ> gpu_buf;
@@ -95,7 +98,7 @@ class ObstacleDetector
         
         void voxel_downsample(const StereoVisionPoint_t* cloud);
         void recompute_normals();
-        void build_octree();
+        void build_search_tree();
         void floodfill_traversable_area();
         void floodfill_cones();
         void generate_output_message(
