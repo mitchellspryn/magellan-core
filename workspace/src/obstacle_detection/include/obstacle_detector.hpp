@@ -38,6 +38,9 @@
 #include <pcl/gpu/containers/initialization.h>
 #include <pcl/octree/octree_search.h>
 
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+
 #include "obstacle_detector_types.hpp"
 #include "sensor_msgs/PointCloud.h"
 
@@ -71,12 +74,12 @@ class ObstacleDetector
         float min_floodfill_norm_dot;
         float max_cone_neighbor_distance_sq;
         float max_cone_aspect_ratio;
+        float min_cone_aspect_ratio;
         float min_cone_point_count;
-        float min_cone_hue;
-        float max_cone_hue;
-        float min_cone_ls_sum;
-        float min_cone_luminance;
-        float max_cone_luminance;
+        uint8_t min_cone_hue;
+        uint8_t max_cone_hue;
+        uint8_t min_cone_saturation;
+        uint8_t min_cone_value;
         float min_occupancy_matrix_num_points;
         float occupancy_matrix_grid_square_size;
         int min_num_points_for_speck;
@@ -106,9 +109,6 @@ class ObstacleDetector
         void remove_specks(
                 magellan_messages::MsgMagellanOccupancyGrid& obstacle_detection_result,
                 int min_num_points_for_speck);
-        bool is_cone_color(const pcl::PointXYZRGBNormal& point);
-        inline HlsColor_t rgba_to_hls(uint32_t rgba_color);
-
 };
 
 #endif

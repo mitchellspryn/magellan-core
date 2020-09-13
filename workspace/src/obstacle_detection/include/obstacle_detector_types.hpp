@@ -3,13 +3,6 @@
 
 #include <cstdint>
 
-typedef struct HlsColor
-{
-    float h;
-    float l;
-    float s;
-} HlsColor_t;
-
 typedef enum TraversabilityClassification
 {
     SAFE=0,

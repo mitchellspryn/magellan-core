@@ -12,17 +12,16 @@ ObstacleDetector::ObstacleDetector()
     default_config.normals_traversable_thresh = 10 * deg_to_rad;
     default_config.normals_untraversable_thresh = 50 * deg_to_rad;
     default_config.floodfill_square_start_size = 0.5;
-    default_config.max_floodfill_neighbor_distance = 4.0 * in_to_m; 
     default_config.max_floodfill_neighbor_angle = 10 * deg_to_rad;
+    default_config.max_floodfill_neighbor_distance = 4.0 * in_to_m; 
+    default_config.min_cone_hue = 75;
+    default_config.max_cone_hue = 120;
+    default_config.min_cone_saturation = 240;
+    default_config.min_cone_value = 240;
     default_config.max_cone_neighbor_distance = 5.0 * in_to_m;
-    default_config.max_cone_aspect_ratio = 0.75;
-    default_config.min_cone_point_count = 8;
-    // TODO: do we need 2-pass for cone color?
-    default_config.min_cone_hue = 90;
-    default_config.max_cone_hue = 110;
-    default_config.min_cone_ls_sum = 275;
-    default_config.min_cone_luminance = 60;
-    default_config.max_cone_luminance = 160;
+    default_config.max_cone_aspect_ratio = 0.3;
+    default_config.min_cone_aspect_ratio = 0.1;
+    default_config.min_cone_point_count = 16;
     default_config.min_occupancy_matrix_num_points = 1;
     default_config.occupancy_matrix_grid_square_size = 3 * in_to_m;
     default_config.min_num_points_for_speck = 4;
@@ -49,12 +48,12 @@ void ObstacleDetector::set_internal_parameters(
     this->min_floodfill_norm_dot = cos(parameters.max_floodfill_neighbor_angle);
     this->max_cone_neighbor_distance_sq = parameters.max_cone_neighbor_distance * parameters.max_cone_neighbor_distance;
     this->max_cone_aspect_ratio = parameters.max_cone_aspect_ratio;
+    this->min_cone_aspect_ratio = parameters.min_cone_aspect_ratio;
     this->min_cone_point_count = parameters.min_cone_point_count;
     this->min_cone_hue = parameters.min_cone_hue;
     this->max_cone_hue = parameters.max_cone_hue;
-    this->min_cone_ls_sum = parameters.min_cone_ls_sum;
-    this->min_cone_luminance = parameters.min_cone_luminance;
-    this->max_cone_luminance = parameters.max_cone_luminance;
+    this->min_cone_saturation = parameters.min_cone_saturation;
+    this->min_cone_value = parameters.min_cone_value;
     this->min_occupancy_matrix_num_points = parameters.min_occupancy_matrix_num_points;
     this->occupancy_matrix_grid_square_size = parameters.occupancy_matrix_grid_square_size;
     this->min_num_points_for_speck = parameters.min_num_points_for_speck;
@@ -329,6 +328,40 @@ void ObstacleDetector::floodfill_cones()
 {
     this->cone_indexes.clear();
 
+    std::vector<bool> is_cone_color(this->downsampled_cloud->size(), false);
+    cv::Mat in_workspace(cv::Size(this->downsampled_cloud->size(), 1), CV_8UC3);
+    cv::Mat out_workspace;
+    
+    unsigned char* in_workspace_data = in_workspace.data;
+    for (int i = 0; i < this->downsampled_cloud->size(); i++)
+    {
+        in_workspace_data[0] = (*this->downsampled_cloud)[i].r;
+        in_workspace_data[1] = (*this->downsampled_cloud)[i].g;
+        in_workspace_data[2] = (*this->downsampled_cloud)[i].b;
+
+        in_workspace_data += 3;
+    }
+
+    cv::cvtColor(in_workspace, out_workspace, cv::COLOR_BGR2HSV);
+
+    unsigned char* out_workspace_data = out_workspace.data;
+    for (int i = 0 ;i < this->downsampled_cloud->size(); i++)
+    {
+        uint8_t h = out_workspace_data[0];
+        uint8_t s = out_workspace_data[1];
+        uint8_t v = out_workspace_data[2];
+
+        if (h >= this->min_cone_hue && h <= this->max_cone_hue)
+        {
+            if (s >= this->min_cone_value || v >= this->min_cone_value)
+            {
+                is_cone_color[i] = true;
+            }
+        }
+
+        out_workspace_data += 3;
+    }
+
     std::unordered_set<int> visited_points;
     std::vector<int> points_found;
     std::vector<float> points_sq_distances;
@@ -339,11 +372,11 @@ void ObstacleDetector::floodfill_cones()
     {
         pcl::PointXYZRGBNormal p = (*this->downsampled_cloud)[i];
         if ((p.normal_z <= this->cos_normals_untraversable_thresh)
-             && (this->is_cone_color(p)))
+             && (is_cone_color[i]))
         {
             std::unordered_set<int> cone_points;
-            float minX = p.x;
-            float maxX = minX;
+            float minZ = p.z;
+            float maxZ = minZ;
             float minY = p.y;
             float maxY = minY;
 
@@ -359,8 +392,8 @@ void ObstacleDetector::floodfill_cones()
 
                 pcl::PointXYZRGBNormal good_point = (*this->downsampled_cloud)[good_idx];
 
-                minX = std::min(minX, good_point.x);
-                maxX = std::max(maxX, good_point.x);
+                minZ = std::min(minZ, good_point.z);
+                maxZ = std::max(maxZ, good_point.z);
                 minY = std::min(minY, good_point.y);
                 maxY = std::max(maxY, good_point.y);
 
@@ -381,7 +414,7 @@ void ObstacleDetector::floodfill_cones()
                             (*this->downsampled_cloud)[next_idx];
 
                         if ((next_point.normal_z <= this->cos_normals_untraversable_thresh)
-                                && (this->is_cone_color(next_point)))
+                                && (is_cone_color[next_idx]))
                         {
                             cone_points.insert(next_idx);
                             points_to_visit.emplace(next_idx);
@@ -391,12 +424,13 @@ void ObstacleDetector::floodfill_cones()
             }
 
             // TODO: should we use xyz points instead of coordinates? Shouldn't matter because it's rectified, but...
-            float cone_width = maxX - minX;
-            float cone_height = maxY - minY;
+            float cone_width = maxY - minY;
+            float cone_height = maxZ - minZ;
             float aspect_ratio = cone_width / std::max(1.0f, cone_height);
 
             float is_valid_cone_blob = 
                 (aspect_ratio <= this->max_cone_aspect_ratio) 
+                && (aspect_ratio >= this->min_cone_aspect_ratio)
                 && (cone_points.size() >= this->min_cone_point_count);
 
             if (is_valid_cone_blob)
@@ -445,7 +479,7 @@ void ObstacleDetector::generate_output_message(
         {
             if (this->cone_indexes[ci].count(i) > 0)
             {
-                counters[packed].cone_count++;
+                counters[packed].cone_count += 3; // test
                 counters[packed].cone_id = ci + 1;
                 is_cone_point = true;
                 break;
@@ -623,83 +657,3 @@ void ObstacleDetector::remove_specks(
 
 }
 
-bool ObstacleDetector::is_cone_color(const pcl::PointXYZRGBNormal& point)
-{
-    HlsColor_t hls_color = this->rgba_to_hls(point.rgba);
-
-    return ((hls_color.h > this->min_cone_hue)
-            && (hls_color.h < this->max_cone_hue)
-            && (hls_color.l > this->min_cone_luminance)
-            && (hls_color.l < this->max_cone_luminance)
-            && (hls_color.l + hls_color.s > this->min_cone_ls_sum));
-}
-
-inline HlsColor_t ObstacleDetector::rgba_to_hls(uint32_t rgba_color)
-{
-    HlsColor_t out;
-
-    float b = static_cast<float>((rgba_color & 0xFF000000) >> 24);
-    float g = static_cast<float>((rgba_color & 0x00FF0000) >> 16);
-    float r = static_cast<float>((rgba_color & 0x0000FF00) >> 8);
-
-    float max;
-    float min = static_cast<float>(std::min(std::min(r, b), g)) / 255.0f;
-    bool is_r_max = false;
-    bool is_g_max = false;
-
-    if (r > b)
-    {
-        if (r > g)
-        {
-            max = static_cast<float>(r) / 255.0;
-            is_r_max = true;
-        }
-        else
-        {
-            max = static_cast<float>(g) / 255.0;
-            is_g_max = true;
-        }
-    }
-    else
-    {
-        if (b > g)
-        {
-            max = static_cast<float>(b) / 255.0;
-        }
-        else
-        {
-            max = static_cast<float>(g) / 255.0;
-            is_g_max = true;
-        }
-    }
-
-    out.l = (max + min) / 2.0f;
-
-    if (out.l > 0.5f)
-    {
-        out.s = (max - min) / (2.0f - (max + min));
-    }
-    else
-    {
-        out.s = (max - min) / (max + min);
-    }
-
-    if (is_r_max)
-    {
-        out.h = 60.0f * (g - b) / (255.0f * (max - min));
-    }
-    else if (is_g_max)
-    {
-        out.h = 120.0f + (60.0f * (b - r) / (255.0f * (max - min)));
-    }
-    else
-    {
-        out.h = 240.0f + (60.0f * (r - g) / (255.0f * (max - min)));
-    }
-
-    out.h = out.h / 2.0f;
-    out.l = out.l * 255.0f;
-    out.s = out.s * 255.0f;
-
-    return out;
-}
