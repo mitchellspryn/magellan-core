@@ -1,5 +1,6 @@
 #include <mutex>
 #include <ros/ros.h>
+#include <unistd.h>
 #include <thread>
 
 #include <magellan_messages/MsgMagellanDrive.h>
@@ -89,40 +90,19 @@ void planner_thread(const ros::TimerEvent &event)
         grid,
         debug_msg);
 
-    //if (g_killed)
-    //{
-    //    output.left_throttle = 0;
-    //    output.right_throttle = 0;
-    //}
+    if (g_killed)
+    {
+        output.left_throttle = 0;
+        output.right_throttle = 0;
+    }
 
     ros::Time now = ros::Time::now();
-    //output.header.frame_id = "map";
-    //output.header.stamp = now;
+    output.header.frame_id = "map";
+    output.header.stamp = now;
     debug_msg.header.frame_id = "map";
     debug_msg.header.stamp = now;
-    //debug_msg.global_obstacle_map = g_occupancy_grid;
 
-    //std::unordered_map<int, int> counts;
-    //for (int y = 0; y < debug_msg.global_obstacle_map.map_metadata.height; y++) 
-    //{
-    //    for (int x = 0; x < debug_msg.global_obstacle_map.map_metadata.width; x++) 
-    //    {
-    //        counts[debug_msg.global_obstacle_map.matrix[(y*debug_msg.global_obstacle_map.map_metadata.width) + x]]++;
-    //    }
-    //}
-
-    //ROS_ERROR("Counts for grid of %dx%d (numel = %d): ", 
-    //        debug_msg.global_obstacle_map.map_metadata.width,
-    //        debug_msg.global_obstacle_map.map_metadata.height,
-    //        debug_msg.global_obstacle_map.map_metadata.width 
-    //            * debug_msg.global_obstacle_map.map_metadata.height);
-
-    //for (const auto& kvp : counts) 
-    //{
-    //    ROS_ERROR("\t%d: %d", kvp.first, kvp.second);
-    //}
-
-    //g_signals_publisher.publish(output);
+    g_signals_publisher.publish(output);
     g_debug_publisher.publish(debug_msg);
 }
 

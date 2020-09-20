@@ -6,7 +6,7 @@
 
 Planner::Planner()
 {
-    this->goal_position.x = 1;
+    this->goal_position.x = 2.5;
     this->goal_position.y = 0;
     this->goal_position.z = 0;
 
@@ -46,6 +46,24 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
         return result;
     }
 
+    float dx = this->goal_position.x - pose.pose.pose.position.x;
+    float dy = this->goal_position.y - pose.pose.pose.position.y;
+
+    float distance_to_goal = std::sqrt((dx*dx) + (dy*dy));
+
+    if ((this->reached_goal) 
+        || (distance_to_goal < this->goal_tolerance))
+    {
+        ROS_ERROR("Reached the goal!");
+        magellan_messages::MsgMagellanDrive result;
+        result.left_throttle = 0;
+        result.right_throttle = 0;
+        debug_msg.path = this->planned_path;
+        debug_msg.control_signals = result;
+        this->reached_goal = true;
+        return result;
+    }
+
     magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
 
     debug_msg.control_signals = signals;
@@ -71,6 +89,10 @@ void Planner::reinitialize()
 
     geometry_msgs::Pose tmp;
     tmp.position = this->goal_position;
+
+    // Measured from center of cone, add 6 inches
+    this->goal_tolerance = 12.0f * in_to_m;
+    this->reached_goal = false;
 
     magellan_messages::MsgZedPose current_pose;
     current_pose.pose.pose.position.x = 0;

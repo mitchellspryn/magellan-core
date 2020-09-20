@@ -18,8 +18,9 @@ class PidMotorSignalGenerator : public MotorSignalGenerator
             const nav_msgs::Path &path) override;
 
     private:
-        const float max_left_wheel_speed = 40.0f;
+        //const float max_left_wheel_speed = 40.0f;
         const float right_wheel_speed_scale = 35.0f / 40.0f;
+        const float max_left_wheel_speed = 20.0f;
 };
 
 #endif

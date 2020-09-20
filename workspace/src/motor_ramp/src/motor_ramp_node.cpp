@@ -4,12 +4,12 @@
 #include <string>
 #include <unistd.h>
 
-float left_set_point = 0.0f;
-float right_set_point = 0.0f;
-float left_current = 0.0f;
-float right_current = 0.0f;
-float max_increase_per_tick = 0.0f;
-float max_decrease_per_tick = 0.0f;
+volatile float left_set_point = 0.0f;
+volatile float right_set_point = 0.0f;
+volatile float left_current = 0.0f;
+volatile float right_current = 0.0f;
+volatile float max_increase_per_tick = 0.0f;
+volatile float max_decrease_per_tick = 0.0f;
 
 ros::Publisher publisher;
 
@@ -30,20 +30,16 @@ void message_received_callback(const magellan_messages::MsgMagellanDrive::ConstP
 // Should we do something fancier like sinusoidal interpolation?
 void timer_callback(const ros::TimerEvent &e)
 {
-    if (left_set_point != left_current 
-            || right_set_point != right_current)
-    {
-        magellan_messages::MsgMagellanDrive m;
-        m.left_throttle = left_current + clamp(left_set_point - left_current, max_decrease_per_tick, max_increase_per_tick);
-        m.right_throttle = right_current + clamp(right_set_point - right_current, max_decrease_per_tick, max_increase_per_tick);
+    magellan_messages::MsgMagellanDrive m;
+    m.left_throttle = left_current + clamp(left_set_point - left_current, max_decrease_per_tick, max_increase_per_tick);
+    m.right_throttle = right_current + clamp(right_set_point - right_current, max_decrease_per_tick, max_increase_per_tick);
 
-        m.header.stamp = ros::Time::now();
+    m.header.stamp = ros::Time::now();
 
-        publisher.publish(m);
+    publisher.publish(m);
 
-        left_current = m.left_throttle;
-        right_current = m.right_throttle;
-    }
+    left_current = m.left_throttle;
+    right_current = m.right_throttle;
 }
 
 int main(int argc, char** argv)

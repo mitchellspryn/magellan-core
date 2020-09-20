@@ -46,6 +46,9 @@ class Planner
         geometry_msgs::Point goal_position;
         nav_msgs::Path planned_path;
 
+        float goal_tolerance;
+        bool reached_goal;
+
         void reinitialize();
 };
 
