@@ -67,9 +67,9 @@ void LastSeenGlobalMap::update_map(
             
             // Transform to world coordinates
             geometry_msgs::Point world_point = GeometryUtils::RotateByQuaternion(local_point, inversePoseRotation);
-            world_point.x += inversePoseTranslation.x;
-            world_point.y += inversePoseTranslation.y;
-            world_point.z += inversePoseTranslation.z;
+            world_point.x -= inversePoseTranslation.x;
+            world_point.y -= inversePoseTranslation.y;
+            world_point.z -= inversePoseTranslation.z;
 
             // Bin
             int x_bin = (world_point.x - min_world_x) / resolution_in_m;

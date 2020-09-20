@@ -51,6 +51,22 @@ static constexpr float g_rot_theta = -32.0f;
 static constexpr float deg_to_rad = M_PI / 180.0f;
 static constexpr float cos_g_rot_theta = 0.848048096156425970386176178690386448728712055956245359051f; // cos(-32 degrees)
 static constexpr float sin_g_rot_theta = -0.52991926423320495404678115181608666877201754995879996476; // sin(-32 degrees)
+static constexpr float rot_theta_quat_w = 0.948018;
+static constexpr float rot_theta_quat_y = -0.3182;
+
+geometry_msgs::Quaternion hamilton_product(
+    const geometry_msgs::Quaternion &q1, 
+    const geometry_msgs::Quaternion &q2)
+{
+    geometry_msgs::Quaternion result;
+
+    result.w = ((q1.w*q2.w) - (q1.x*q2.x) - (q1.y*q2.y) - (q2.z*q2.z));
+    result.x = ((q1.w*q2.x) + (q1.x*q2.w) + (q1.y*q2.z) - (q2.z*q2.y));
+    result.y = ((q1.w*q2.y) - (q1.x*q2.z) + (q1.y*q2.w) + (q2.z*q2.x));
+    result.z = ((q1.w*q2.z) - (q1.x*q2.y) - (q1.y*q2.x) - (q2.z*q2.w));
+
+    return result;
+}
 
 std::string sl_err_to_string(sl::ERROR_CODE error_code)
 {
@@ -246,6 +262,12 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
     const int frame_downsample_counter = g_pose_update_rate / capture_parameters.frames_per_second;
     int frame_counter = 0;
 
+    geometry_msgs::Quaternion rectify_pose_quat;
+    rectify_pose_quat.w = rot_theta_quat_w;
+    rectify_pose_quat.x = 0;
+    rectify_pose_quat.y = rot_theta_quat_y;
+    rectify_pose_quat.z = 0;
+
     while (ros::ok())
     {
         // TODO: how much to sleep?
@@ -366,6 +388,10 @@ void image_pose_grab_thread(const capture_parameters_t &capture_parameters)
                 {
                     sl_vec3_to_ros_point(pose.getTranslation(), pose_msg.pose.pose.position);
                     sl_quat_to_ros_quat(pose.getOrientation(), pose_msg.pose.pose.orientation);
+
+                    pose_msg.pose.pose.orientation = hamilton_product(
+                        pose_msg.pose.pose.orientation,
+                        rectify_pose_quat);
 
                     pose_msg.twist.twist.linear.x  = pose.twist[0];
                     pose_msg.twist.twist.linear.y  = pose.twist[1];

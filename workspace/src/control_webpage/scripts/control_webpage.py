@@ -105,7 +105,7 @@ def draw_planner_debug_image(data):
                 else:
                     raise ValueError('Status = {0}'.format(status))
 
-    image = cv2.resize(small_im, (grid_size_px*num_cells_tall, grid_size_px*num_cells_wide), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
+    image = cv2.resize(small_im, (grid_size_px*num_cells_wide, grid_size_px*num_cells_tall), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
     
     # Draw the grid lines
     #for y in range(0, num_cells_wide, 1):

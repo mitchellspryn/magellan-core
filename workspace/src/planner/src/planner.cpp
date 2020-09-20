@@ -7,7 +7,7 @@
 Planner::Planner()
 {
     this->goal_position.x = 1;
-    this->goal_position.y = -1;
+    this->goal_position.y = 0;
     this->goal_position.z = 0;
 
     this->reinitialize();
@@ -80,8 +80,8 @@ void Planner::reinitialize()
     this->global_map = std::unique_ptr<LastSeenGlobalMap>(
         new LastSeenGlobalMap(
             tmp,
-            5,
-            5,
+            2,
+            2,
             3 * in_to_m));
 
     this->motor_signal_generator = std::unique_ptr<PidMotorSignalGenerator>(
