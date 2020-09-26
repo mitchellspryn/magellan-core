@@ -10,17 +10,21 @@
 #include "geometry_utils.hpp"
 #include "motor_signal_generator.hpp"
 
+#include <ros/ros.h>
+
 class PidMotorSignalGenerator : public MotorSignalGenerator
 {
     public:
         virtual magellan_messages::MsgMagellanDrive get_drive_signals(
             const magellan_messages::MsgZedPose &current_pose,
-            const nav_msgs::Path &path) override;
+            const nav_msgs::Path &path,
+            const geometry_msgs::Point& goal_position) override;
 
     private:
-        //const float max_left_wheel_speed = 40.0f;
-        const float right_wheel_speed_scale = 35.0f / 40.0f;
-        const float max_left_wheel_speed = 20.0f;
+        const float max_left_wheel_speed = 35.0f;
+        const float right_wheel_speed_scale = 55.0f / 40.0f;
+        const float turn_sharpness = 2.0f;
+        const float distance_start_decay_m = 4.0f;
 };
 
 #endif

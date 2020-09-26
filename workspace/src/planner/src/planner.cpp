@@ -6,7 +6,7 @@
 
 Planner::Planner()
 {
-    this->goal_position.x = 2.5;
+    this->goal_position.x = 5;
     this->goal_position.y = 0;
     this->goal_position.z = 0;
 
@@ -64,7 +64,7 @@ magellan_messages::MsgMagellanDrive Planner::run_planner(
         return result;
     }
 
-    magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path);
+    magellan_messages::MsgMagellanDrive signals = this->motor_signal_generator->get_drive_signals(pose, this->planned_path, this->goal_position);
 
     debug_msg.control_signals = signals;
     debug_msg.path = this->planned_path;

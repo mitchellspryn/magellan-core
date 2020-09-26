@@ -121,6 +121,8 @@ int main(int argc, char** argv)
     ros::Subscriber occupancy_grid_subscriber = nh.subscribe<magellan_messages::MsgMagellanOccupancyGrid>("input_topic_occupancy_grid", 1, occupancy_grid_received_callback);
     ros::Subscriber destination_subscriber = nh.subscribe<geometry_msgs::Point>("input_topic_destination", 1, destination_received_callback);
 
+    usleep(6000 * 1000);
+
     // Run at 10 hz
     // TODO: make configurable?
     ros::Timer timer = nh.createTimer(ros::Duration(0.1), planner_thread);

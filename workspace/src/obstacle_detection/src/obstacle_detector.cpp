@@ -16,8 +16,8 @@ ObstacleDetector::ObstacleDetector()
     default_config.max_floodfill_neighbor_distance = 4.0 * in_to_m; 
     default_config.min_cone_hue = 75;
     default_config.max_cone_hue = 120;
-    default_config.min_cone_saturation = 240;
-    default_config.min_cone_value = 240;
+    default_config.min_cone_saturation = 220; //240
+    default_config.min_cone_value = 220;      //240
     default_config.max_cone_neighbor_distance = 5.0 * in_to_m;
     default_config.max_cone_aspect_ratio = 0.3;
     default_config.min_cone_aspect_ratio = 0.1;
