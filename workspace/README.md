@@ -53,7 +53,7 @@ This will open up the control webpage at <robot_ip>:12345
 roslaunch launch/autonomous_drive.launchtemplate
 ```
 
-This will open up the control webpage at <robot_ip>:12345
+This will open up the control webpage at <robot_ip>:12345. The robot will start moving approximately 6 seconds after the program is started. 
 
 ## Drive in a predefined path and save collected data to a rosbag
 ```
@@ -76,8 +76,8 @@ rosrun obstacle_detection debug -i out.pcd
 
 This will generate the following visualizations:
 * **echo.pcd**: The original file, echoed out to disk.
-* **debug.pcd**: The voxelized cloud. Points that are traversable are marked in green, untraversable are red, and cones are in various other colors (purple, yellow, etc). 
-* **matrix.bmp**: The generated occupancy matrix. This is what is emitted and consumed by the planner.
+* **debug.pcd**: The voxelized cloud. Points that are traversable are marked in green, untraversable are red, and cones are in various other colors (purple, yellow, etc). Areas without points do not have enough data to determine the traversability. 
+* **matrix.bmp**: The generated occupancy matrix. This is what is emitted and consumed by the planner. The color scheme follows that of the debug point cloud in debug.pcd.
 
 The clouds can be viewed with pcl_viewer:
 ```
