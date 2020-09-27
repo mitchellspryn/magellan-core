@@ -6,6 +6,10 @@ The Magellan Project is a repo hosting design and software files for an open-sou
 * **[Introduction to the Platform](http://www.mitchellspryn.com/2019/08/05/Robust-Offroad-Rover-For-Sim2Real-Applications.html)**
 * **[Introduction to the included Algorithms](http://www.mitchellspryn.com/2020/09/25/Autonomous-Navigation-In-Outdoor-Environments.html)**
 
+Here is a video of the bot in action:
+
+[![bot_in_action](https://img.youtube.com/vi/ldnzwXzbQqc/0.jpg)](https://www.youtube.com/watch?v=ldnzwXzbQqc)
+
 ## What's included
 The content is divided into a few subdirectories:
 * **Analysis**: A few jupyter notebooks used for analyzing some data during the design. In particular, these were useful in debugging the causes of failure of the IMU and GPS to perform due to motor interference.
