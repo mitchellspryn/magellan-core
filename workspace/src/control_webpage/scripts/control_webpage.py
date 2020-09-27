@@ -215,7 +215,6 @@ def process_planner_debug_message(data):
         waypoints.append(local_point)
 
     local_data = {}
-    local_data['debug_image'] = cv_to_byte_stream(draw_planner_debug_image(data))
     local_data['current_x'] = data.pose.pose.pose.position.x
     local_data['current_y'] = data.pose.pose.pose.position.y 
     local_data['current_z'] = data.pose.pose.pose.position.z 
@@ -270,7 +269,7 @@ def get_cached_topic_data():
     with planner_debug_lock:
         return_data = copy.deepcopy(planner_debug_data)
 
-    return json.dumps(return_data), 200, {'ContentType':'application/json'}
+    return return_data, 200, {'ContentType':'application/json'}
 
 # Use this to cleanly kill the webpage when ctrl+c is pressed
 def sig_handler(sig, frame):

@@ -7,7 +7,7 @@
 Planner::Planner()
 {
     this->goal_position.x = 5;
-    this->goal_position.y = 0;
+    this->goal_position.y = 0.5;
     this->goal_position.z = 0;
 
     this->reinitialize();

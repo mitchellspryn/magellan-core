@@ -10,8 +10,6 @@
 AStarPathGenerator::AStarPathGenerator(float obstacle_expansion_size_m)
     : obstacle_expansion_size_m(obstacle_expansion_size_m) 
 {
-    this->validator = std::unique_ptr<SimplePathValidator>(
-            new SimplePathValidator());
 }
 
 bool AStarPathGenerator::update_path(
@@ -26,15 +24,17 @@ bool AStarPathGenerator::update_path(
     if (this->is_path_valid(
             current_pose,
             path,
-            world_grid))
+            world_grid,
+            debug_grid))
     {
         return true;
     }
-    
+
     return this->run_astar(current_pose, 
             goal_pose,
             world_grid,
-            path);
+            path,
+            debug_grid);
 }
 
 void AStarPathGenerator::initialize_grids(
@@ -125,7 +125,8 @@ bool AStarPathGenerator::run_astar(
     const magellan_messages::MsgZedPose &current_pose,
     const geometry_msgs::Pose &final_pose,
     const GlobalMap &world_map,
-    nav_msgs::Path &path)
+    nav_msgs::Path &path,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid)
 {
     // TODO: this takes a really long time if there is no valid path.
     path.poses.clear();
@@ -218,7 +219,6 @@ bool AStarPathGenerator::run_astar(
     {
         return false;
     }
-
     
     // Get list of points, and reorder to point from current pose -> goal pose
     std::vector<int> parent_indexes;
@@ -241,35 +241,44 @@ bool AStarPathGenerator::run_astar(
     // Do not put current pose into the list of waypoints.
     //path.poses.push_back(current_waypoint);
 
-    geometry_msgs::Point previous_point = current_pose.pose.pose.position;
-    geometry_msgs::Point next_point = current_pose.pose.pose.position;
-    for (size_t i = 0; i < parent_indexes.size(); i++)
+    geometry_msgs::Point previous_base_point = current_pose.pose.pose.position;
+    geometry_msgs::Point next_good_point = current_pose.pose.pose.position;
+    geometry_msgs::Point next_test_point = current_pose.pose.pose.position;
+    size_t ppi = 0;
+    for (size_t i = 1; i < parent_indexes.size(); i++)
     {
         int index = parent_indexes[i];
         int next_y = index % map_width;
         int next_x = index / map_width;
 
-        previous_point = next_point;
-        next_point = world_map.grid_to_real(
+        next_test_point = world_map.grid_to_real(
             OccupancyGridSquare_t(next_x, next_y));
 
-        //if (true)
-        if (!validator->is_segment_valid(
-            current_waypoint.pose.position,
-            next_point,
+        if (!this->is_segment_valid(
+            previous_base_point,
+            next_test_point,
             world_map,
-            false))
+            false,
+            debug_grid))
         {
             geometry_msgs::PoseStamped tmp;
             tmp.header.frame_id = "map";
-            tmp.pose.position = previous_point;
+            tmp.pose.position = next_good_point;
             path.poses.push_back(tmp);
 
-            current_waypoint.pose.position = previous_point;
+            previous_base_point = next_good_point;
         }
+
+        next_good_point = next_test_point;
     }
 
-    geometry_msgs::Point &last_point = current_waypoint.pose.position;
+    geometry_msgs::Point last_point;
+    last_point.x = final_pose.position.x - 1;
+
+    if (path.poses.size() > 0) 
+    {
+        last_point = path.poses[path.poses.size() - 1].pose.position;   
+    }
 
     if ((last_point.x != final_pose.position.x)
         ||
@@ -297,7 +306,8 @@ double AStarPathGenerator::astar_heuristic(
 bool AStarPathGenerator::is_path_valid(
     const magellan_messages::MsgZedPose &current_pose,
     const nav_msgs::Path &path,
-    const GlobalMap &global_map)
+    const GlobalMap &global_map,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid)
 {
     if (path.poses.size() == 0)
     {
@@ -308,7 +318,8 @@ bool AStarPathGenerator::is_path_valid(
             current_pose.pose.pose.position,
             path.poses[0].pose.position,
             global_map,
-            (path.poses.size() == 1)))
+            (path.poses.size() == 1),
+            debug_grid))
     {
         return false;
     }
@@ -319,7 +330,8 @@ bool AStarPathGenerator::is_path_valid(
                 path.poses[i-1].pose.position,
                 path.poses[i].pose.position,
                 global_map,
-                (i == path.poses.size() - 1)))
+                (i == path.poses.size() - 1),
+                debug_grid))
         {
             return false;
         }
@@ -332,10 +344,12 @@ bool AStarPathGenerator::is_segment_valid(
     const geometry_msgs::Point &start,
     const geometry_msgs::Point &end,
     const GlobalMap &global_map,
-    bool allow_cone_intersect)
+    bool allow_cone_intersect,
+    magellan_messages::MsgMagellanOccupancyGrid& debug_grid)
 {
     const magellan_messages::MsgMagellanOccupancyGrid &grid = global_map.get_map();
     double step_size_in_m = grid.map_metadata.resolution;
+    //double step_size_in_m = 0.01;
     double start_to_end_x = end.x - start.x;
     double start_to_end_y = end.y - start.y;
 
@@ -354,11 +368,10 @@ bool AStarPathGenerator::is_segment_valid(
     work_point.y = start.y;
     work_point.z = 0;
 
-
     for (int i = 0; i < num_steps; i++)
     {
         OccupancyGridSquare_t square = global_map.real_to_grid(work_point);
-        int packed_idx = (square.y * grid.map_metadata.width) + square.x;
+        int packed_idx = (square.x * grid.map_metadata.width) + square.y;
 
         if (this->grid[packed_idx].is_obstacle)
         {

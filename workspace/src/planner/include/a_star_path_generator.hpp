@@ -41,7 +41,6 @@ class AStarPathGenerator : public PathGenerator
 
         std::vector<AStarPoint_t> grid;
         float obstacle_expansion_size_m;
-        std::unique_ptr<PathValidator> validator;
 
         static constexpr float waypoint_delete_distance_m = 0.15f * 0.15f; // approx 6 inches
 
@@ -67,7 +66,8 @@ class AStarPathGenerator : public PathGenerator
             const magellan_messages::MsgZedPose& current_pose,
             const geometry_msgs::Pose& final_pose,
             const GlobalMap& world_grid,
-            nav_msgs::Path& path);
+            nav_msgs::Path& path,
+            magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
 
         double astar_heuristic(
             const OccupancyGridSquare_t goal,
@@ -76,13 +76,15 @@ class AStarPathGenerator : public PathGenerator
         bool is_path_valid(
             const magellan_messages::MsgZedPose& current_pose,
             const nav_msgs::Path& path,
-            const GlobalMap& global_map);
+            const GlobalMap& global_map,
+            magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
 
         bool is_segment_valid(
             const geometry_msgs::Point& start,
             const geometry_msgs::Point& end,
             const GlobalMap& global_map,
-            bool allow_cone_intersect);
+            bool allow_cone_intersect,
+            magellan_messages::MsgMagellanOccupancyGrid& debug_grid);
 
 };
 
